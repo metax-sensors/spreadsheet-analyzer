@@ -1,9 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME imgui_external
-  VERSION 1.91.8
-  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.8-docking.zip
-  URL_HASH MD5=43d165df3b3cbea8717873ba213d0c28
+  VERSION 1.91.9b
+  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b-docking.zip
+  URL_HASH MD5=ef52237e1200e63d4f01a5d2112508d9
   DOWNLOAD_ONLY YES
 )
 

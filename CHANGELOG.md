@@ -1,5 +1,6 @@
 ## 1.1.1 (unreleased)
 * fix generation of unique file titles to work on more circumstances
+* update imgui to v1.91.9b (https://github.com/ocornut/imgui/releases/tag/v1.91.9b)
 
 ## 1.1.0 (14.03.2025)
 * move configuration of maximum displayed data points to settings menu
