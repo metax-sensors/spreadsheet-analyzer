@@ -715,9 +715,9 @@ namespace {
 					return false;
 				}
 
-				const auto date_range = getDateRange(col);
+				const auto temp_range = getDateRange(col);
 				const auto current_x_lims = ImPlot::GetCurrentPlot()->Axes[ImAxis_X1].Range;
-				return current_x_lims.Max < date_range.first || current_x_lims.Min > date_range.second;
+				return current_x_lims.Max < temp_range.first || current_x_lims.Min > temp_range.second;
 			}();
 
 			ImPlot::SetupAxisLimits(ImAxis_X1, date_range.first, date_range.second,

@@ -1,5 +1,6 @@
 #include "window_context.hpp"
 
+#include <algorithm>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -22,7 +23,7 @@ auto getUniqueWindowTitle(const std::string_view title) -> std::string {
 
 	auto is_unique = [&]() {
 		return std::ranges::none_of(ctxs, [&](const auto &ctx) {
-			return std::visit([&](const auto &ctx) { return ctx.getWindowTitle() == stripped_title; }, ctx);
+			return std::visit([&](const auto &e) { return e.getWindowTitle() == stripped_title; }, ctx);
 		});
 	}();
 
@@ -31,7 +32,7 @@ auto getUniqueWindowTitle(const std::string_view title) -> std::string {
 	while (!is_unique) {
 		new_title = getIncrementedWindowTitle(new_title);
 		is_unique = std::ranges::none_of(ctxs, [&](const auto &ctx) {
-			return std::visit([&](const auto &ctx) { return ctx.getWindowTitle() == new_title; }, ctx);
+			return std::visit([&](const auto &e) { return e.getWindowTitle() == new_title; }, ctx);
 		});
 	}
 
