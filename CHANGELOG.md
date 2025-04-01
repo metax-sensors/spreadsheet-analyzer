@@ -3,6 +3,7 @@
 * update imgui to v1.91.9b (https://github.com/ocornut/imgui/releases/tag/v1.91.9b)
 * update SDL to v3.2.10 (https://github.com/libsdl-org/SDL/releases/tag/release-3.2.10)
 * update SDL_image to v3.2.4 (https://github.com/libsdl-org/SDL_image/releases/tag/release-3.2.4)
+* update spdlog to v1.15.2 (https://github.com/gabime/spdlog/releases/tag/v1.15.2)
 
 ## 1.1.0 (14.03.2025)
 * move configuration of maximum displayed data points to settings menu
