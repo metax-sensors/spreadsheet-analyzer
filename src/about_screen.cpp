@@ -59,9 +59,10 @@ auto showAboutScreen() -> void {
 	ImGui::PushFont(getFont(fontList::ROBOTO_MONO_20));
 	ImGuiExt::TextUnformattedCentered("Spreadsheet Analyzer");
 	ImGui::PopFont();
-	ImGuiExt::TextUnformattedCentered("Copyright © 2025 BestSens AG");
-	if (ImGuiExt::HyperlinkCentered("https://www.bestsens.de")) {
-		openWebpage("https://www.bestsens.de");
+	ImGuiExt::TextUnformattedCentered("Copyright © 2025");
+	ImGuiExt::TextUnformattedCentered("METAX Kupplungs- und Dichtungstechnik GmbH");
+	if (ImGuiExt::HyperlinkCentered("https://www.metax-gmbh.de")) {
+		openWebpage("https://www.metax-gmbh.de");
 	}
 
 	if (app_state.window_icon != nullptr) {
@@ -138,7 +139,7 @@ auto showAboutScreen() -> void {
 	if (ImGuiExt::BeginSubWindow("License")) {
 		static const auto* license_text = R"(MIT License
 
-Copyright (c) 2025 BestSens AG
+Copyright (c) 2025 METAX Kupplungs- und Dichtungstechnik GmbH
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

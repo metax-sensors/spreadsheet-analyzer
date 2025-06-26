@@ -122,13 +122,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
 	)
 
 	add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/logo_4c.png.h
-		COMMAND xxd -n logo_data -i ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo_4c.png > ${CMAKE_CURRENT_BINARY_DIR}/logo_4c.png.h
-		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo_4c.png
+		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/logo_metax.png.h
+		COMMAND xxd -n logo_data -i ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo_metax.png > ${CMAKE_CURRENT_BINARY_DIR}/logo_metax.png.h
+		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo_metax.png
 	)
 
 	add_custom_target(generate_headers ALL
-		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/2025_02_ICON_shade.png.h ${CMAKE_CURRENT_BINARY_DIR}/logo_4c.png.h
+		DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/2025_02_ICON_shade.png.h ${CMAKE_CURRENT_BINARY_DIR}/logo_metax.png.h
 	)
 
 	add_dependencies(spreadsheet_analyzer generate_headers)

@@ -14,11 +14,11 @@ const unsigned char icon_data[] = {
 };
 
 const unsigned char logo_data[] = {
-#embed "../assets/logo_4c.png"
+#embed "../assets/logo_metax.png"
 };
 #else
 #include "2025_02_ICON_shade.png.h"
-#include "logo_4c.png.h"
+#include "logo_metax.png.h"
 #endif
 
 #if defined(__clang__)

@@ -10,11 +10,11 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-      VALUE "CompanyName",      "BestSens AG\0"
+      VALUE "CompanyName",      "METAX Kupplungs- und Dichtungstechnik GmbH\0"
       VALUE "FileDescription",  "\0"
       VALUE "FileVersion",      "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0\0"
       VALUE "InternalName",     "\0"
-      VALUE "LegalCopyright",   "(C)2025 BestSens AG\0"
+      VALUE "LegalCopyright",   "(C)2025 METAX Kupplungs- und Dichtungstechnik GmbH\0"
       VALUE "OriginalFilename", "spreadsheet_analyzer.exe\0"
       VALUE "ProductName",      "Spreadsheet Analyzer\0"
       VALUE "ProductVersion",   "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0\0"
