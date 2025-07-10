@@ -1,6 +1,6 @@
 ## 1.1.1 (unreleased)
 * fix generation of unique file titles to work on more circumstances
-* update imgui to v1.92.0 (https://github.com/ocornut/imgui/releases/tag/v1.92.0)
+* update imgui to v1.92.1 (https://github.com/ocornut/imgui/releases/tag/v1.92.1)
 * update SDL to v3.2.16 (https://github.com/libsdl-org/SDL/releases/tag/release-3.2.16)
 * update SDL_image to v3.2.4 (https://github.com/libsdl-org/SDL_image/releases/tag/release-3.2.4)
 * update spdlog to v1.15.3 (https://github.com/gabime/spdlog/releases/tag/v1.15.3)
