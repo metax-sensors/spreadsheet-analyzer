@@ -52,9 +52,13 @@ namespace {
 				spdlog::critical("Terminating with uncaught exception");
 				std::rethrow_exception(ep);
 			} catch (const std::exception &e) {
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Terminating with uncaught exception", e.what(), nullptr);
 				spdlog::critical("\twith `what()` = \"{}\"", e.what());
-			} catch (...) {}  // NOLINT(bugprone-empty-catch)
+			} catch (...) {
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Terminating with uncaught exception", "Unknown error", nullptr);
+			}  // NOLINT(bugprone-empty-catch)
 		} else {
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Terminating without exception", "Unknown error", nullptr);
 			spdlog::critical("Terminating without exception");
 		}
 
@@ -501,8 +505,8 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			SDL_RenderTexture(app_state.renderer, logo_texture, nullptr, &texture_rect); 
 		}
 
-        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), app_state.renderer);
-        SDL_RenderPresent(app_state.renderer);
+		ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), app_state.renderer);
+		SDL_RenderPresent(app_state.renderer);
 	}
 
 	// Cleanup
