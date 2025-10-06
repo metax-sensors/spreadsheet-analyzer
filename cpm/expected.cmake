@@ -1,9 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME expected
-  VERSION 1.1
-  URL https://github.com/TartanLlama/expected/archive/refs/tags/v1.1.0.zip
-  URL_HASH MD5=cbc9465bb0e9328c821fc3cf89ec7711
+  VERSION 1.3.1
+  URL https://github.com/TartanLlama/expected/archive/refs/tags/v1.3.1.zip
+  URL_HASH SHA256=68bbfd81a6d312c4518b5a1831f465fa03811355af9aa9c7403348545d1d2a56
 )
 
 if (expected_ADDED)
