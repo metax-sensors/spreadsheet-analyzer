@@ -3,7 +3,12 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#if defined(__APPLE__)
+#include <ctime>
+#endif
+#if not defined(__APPLE__)
 #include <execution>
+#endif
 #include <filesystem>
 #include <iomanip>
 #include <ranges>
@@ -30,6 +35,33 @@ namespace {
 	};
 
 	auto parseDate(const std::string &str, size_t &prefered_fmt) -> time_t {
+#if defined(__APPLE__)
+		std::tm tm{};
+		bool success = false;
+
+		for (size_t i = 0; i < date_formats.size(); ++i) {
+			const auto index = (i + prefered_fmt) % date_formats.size();
+			const auto &fmt = date_formats.at(index);
+			
+			// Reset tm struct
+			tm = {};
+			
+			char* result = strptime(str.c_str(), fmt, &tm);
+			
+			if (result != nullptr && *result == '\0') {
+				success = true;
+				prefered_fmt = index;
+				break;
+			}
+		}
+
+		if (!success) {
+			prefered_fmt = 0;
+			throw std::runtime_error(fmt::format("Failed to parse date: \"{}\"", str));
+		}
+
+		return std::mktime(&tm);
+#else
 		std::istringstream ss{};
 
 		std::chrono::sys_seconds tp{};
@@ -56,6 +88,7 @@ namespace {
 		}
 
 		return std::chrono::system_clock::to_time_t(tp);
+#endif
 	}
 
 	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading)
@@ -136,15 +169,24 @@ namespace {
 		}
 
 		const auto n = data.size() / 2;
+#if defined(__APPLE__)
+		std::nth_element(data.begin(), data.begin() + static_cast<long>(n), data.end());
+#else
 		std::nth_element(std::execution::par_unseq, data.begin(), data.begin() + static_cast<long>(n), data.end());
+#endif
 
 		if (n % 2 != 0) {
 			return data.at(n);
 		}
 
 		const auto val1 = data.at(n);
+#if defined(__APPLE__)
+		const auto val2 =
+			*std::max_element(data.cbegin(), data.cbegin() + static_cast<long>(n));
+#else
 		const auto val2 =
 			*std::max_element(std::execution::par_unseq, data.cbegin(), data.cbegin() + static_cast<long>(n));
+#endif
 
 		return (val1 + val2) / T{2};
 	}
@@ -207,7 +249,11 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 		}
 	};
 
+#if defined(__APPLE__)
+	std::for_each(contexts.begin(), contexts.end(), fn);
+#else
 	std::for_each(std::execution::seq, contexts.begin(), contexts.end(), fn);
+#endif
 
 	if (stop_loading) {
 		return {};
@@ -232,8 +278,13 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 	values.reserve(values_temp.size());
 
 	for (auto &&[key, value] : values_temp) {
+#if defined(__APPLE__)
+		std::sort(value.data.begin(), value.data.end(),
+				  [](const auto &a, const auto &b) { return a.first < b.first; });
+#else
 		std::sort(std::execution::par, value.data.begin(), value.data.end(),
 				  [](const auto &a, const auto &b) { return a.first < b.first; });
+#endif
 
 		data_dict_t dd{};
 		dd.name = value.name;

@@ -80,6 +80,9 @@ auto openWebpage(std::string url) -> void {
 	ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(__linux__)
 	executeCmd({"xdg-open", url});
+#elif defined(__APPLE__)
+	auto command = "open \"" + url + "\"";
+	system(command.c_str());
 #else
 #warning "Unknown OS, can't open webpages"
 #endif
