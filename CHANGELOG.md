@@ -7,6 +7,7 @@
 * update fmt to v12.0.0 (https://github.com/fmtlib/fmt/releases/tag/12.0.0)
 * update cxxopts to v3.3.1 (https://github.com/jarro2783/cxxopts/releases/tag/v3.3.1)
 * update expected to v1.3.1 (https://github.com/TartanLlama/expected/releases/tag/v1.3.1)
+* update fast_float to v8.1.0 (https://github.com/fastfloat/fast_float/releases/tag/v8.1.0)
 
 ## 1.1.0 (14.03.2025)
 * move configuration of maximum displayed data points to settings menu
