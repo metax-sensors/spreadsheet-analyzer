@@ -54,8 +54,29 @@ auto isLightTheme() -> bool {
 	auto i = int(buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0]);
 
 	return i == 1;
+#elif defined(__APPLE__)
+#include <cstdio>
+	// macOS: read the global AppleInterfaceStyle. If it equals "Dark", dark mode is enabled.
+	{
+		FILE *fp = popen("defaults read -g AppleInterfaceStyle 2>/dev/null", "r");
+		if (!fp) {
+			// couldn't run the command; assume light theme
+			return true;
+		}
+		char buf[64]{};
+		bool isDark = false;
+		if (fgets(buf, sizeof(buf), fp) != nullptr) {
+			std::string s(buf);
+			if (!s.empty() && s.back() == '\n') s.pop_back();
+			if (s == "Dark" || s.find("Dark") != std::string::npos) {
+				isDark = true;
+			}
+		}
+		pclose(fp);
+		return !isDark;
+	}
 #else
-	return false;
+	return true;
 #endif
 }
 
