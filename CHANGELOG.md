@@ -5,6 +5,7 @@
 * update SDL_image to v3.2.4 (https://github.com/libsdl-org/SDL_image/releases/tag/release-3.2.4)
 * update spdlog to v1.15.3 (https://github.com/gabime/spdlog/releases/tag/v1.15.3)
 * update fmt to v12.0.0 (https://github.com/fmtlib/fmt/releases/tag/12.0.0)
+* update cxxopts to v3.3.1 (https://github.com/jarro2783/cxxopts/releases/tag/v3.3.1)
 
 ## 1.1.0 (14.03.2025)
 * move configuration of maximum displayed data points to settings menu
