@@ -3,7 +3,7 @@ CPMAddPackage(
   NAME stduuid
   VERSION 1.2.3
   URL https://github.com/mariusbancila/stduuid/archive/refs/tags/v1.2.3.zip
-  URL_HASH MD5=32a2c2d1b979178c71c439cf0481a3d9
+  URL_HASH SHA256=0f867768ce55f2d8fa361be82f87f0ea5e51438bc47ca30cd92c9fd8b014e84e
 )
 
 if (stduuid_ADDED)

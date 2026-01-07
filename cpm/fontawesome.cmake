@@ -2,7 +2,7 @@ include(CPM)
 CPMAddPackage(
   NAME fontawesome
   URL https://github.com/FortAwesome/Font-Awesome/raw/refs/heads/6.x/webfonts/fa-solid-900.ttf
-  URL_HASH MD5=b73761d82a77f73006145848a00c515b
+  URL_HASH SHA256=af19d135d3a935b3ebfbd80320716ffe1202052c5f68dc2c5f1abc57005ac605
   DOWNLOAD_ONLY YES
   DOWNLOAD_NO_EXTRACT YES
 )

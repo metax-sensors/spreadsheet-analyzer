@@ -2,9 +2,9 @@ include(CPM)
 include(sdl)
 CPMAddPackage(
   NAME sdl_image
-  VERSION 3.2.4
-  URL https://github.com/libsdl-org/SDL_image/archive/refs/tags/release-3.2.4.zip
-  URL_HASH MD5=a31a141909842ed08abff75534d64bf9
+  VERSION 3.2.6
+  URL https://github.com/libsdl-org/SDL_image/archive/refs/tags/release-3.2.6.zip
+  URL_HASH SHA256=b3e5049194cae564eacab5c06d5341ef4e831e952271c3cada2f39c3a352ab58
   OPTIONS
     "BUILD_SHARED_LIBS OFF"
 )

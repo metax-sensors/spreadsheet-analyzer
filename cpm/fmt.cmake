@@ -1,9 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME fmt
-  VERSION 12.0.0
-  URL https://github.com/fmtlib/fmt/releases/download/12.0.0/fmt-12.0.0.zip
-  URL_HASH SHA256=1c32293203449792bf8e94c7f6699c643887e826f2d66a80869b4f279fb07d25
+  VERSION 12.1.0
+  URL https://github.com/fmtlib/fmt/releases/download/12.1.0/fmt-12.1.0.zip
+  URL_HASH SHA256=695fd197fa5aff8fc67b5f2bbc110490a875cdf7a41686ac8512fb480fa8ada7
 )
 
 if (fmt_ADDED)
