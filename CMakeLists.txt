@@ -15,6 +15,12 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cpm")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+# Check whether std::chrono::parse is available (not implemented in all stdlibs)
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles(
+"#include <sstream>\n#include <chrono>\nint main() { std::istringstream ss(\"2020-01-01 00:00:00\"); std::chrono::sys_seconds tp; ss >> std::chrono::parse(\"%Y-%m-%d %H:%M:%S\", tp); (void)tp; return 0; }"
+HAVE_STD_CHRONO_PARSE)
+
 option(USE_LTO "Enable LTO" ON)
 
 set(BUILD_STATIC ON)
@@ -92,6 +98,10 @@ endif()
 target_include_directories(spreadsheet_analyzer PRIVATE
 	inc
 )
+
+if(HAVE_STD_CHRONO_PARSE)
+    target_compile_definitions(spreadsheet_analyzer PRIVATE HAVE_STD_CHRONO_PARSE=1)
+endif()
 
 target_compile_options(spreadsheet_analyzer PRIVATE
 	"$<$<CONFIG:RELEASE>:-O3;-DNDEBUG>"
