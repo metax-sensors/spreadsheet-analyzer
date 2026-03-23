@@ -1,9 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME FastFloat
-  VERSION 8.2.2
-  URL https://github.com/fastfloat/fast_float/archive/refs/tags/v8.2.2.zip
-  URL_HASH SHA256=5c90ad15c11bd4ba9940434b479fbfde5c52b43610314c710c77abb044f8742b
+  VERSION 8.2.4
+  URL https://github.com/fastfloat/fast_float/archive/refs/tags/v8.2.4.zip
+  URL_HASH SHA256=a66ea29b70d7b501ee748b8313d215d2fcdaca8d94c4f7978029e9eb6f238064
 )
 
 if (FastFloat_ADDED)
