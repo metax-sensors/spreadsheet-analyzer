@@ -2,15 +2,11 @@
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
-#if defined(__APPLE__)
 #include <ctime>
-#endif
 #if not defined(__APPLE__)
 #include <execution>
 #endif
 #include <filesystem>
-#include <iomanip>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
@@ -36,7 +32,6 @@ namespace {
 	};
 
 	auto parseDate(const std::string &str, size_t &prefered_fmt) -> time_t {
-#if defined(__APPLE__)
 		std::tm tm{};
 		bool success = false;
 
@@ -44,7 +39,6 @@ namespace {
 			const auto index = (i + prefered_fmt) % date_formats.size();
 			const auto &fmt = date_formats.at(index);
 			
-			// Reset tm struct
 			tm = {};
 			
 			char* result = strptime(str.c_str(), fmt, &tm);
@@ -62,34 +56,6 @@ namespace {
 		}
 
 		return std::mktime(&tm);
-#else
-		std::istringstream ss{};
-
-		std::chrono::sys_seconds tp{};
-		bool success = false;
-
-		for (size_t i = 0; i < date_formats.size(); ++i) {
-			const auto index = (i + prefered_fmt) % date_formats.size();
-			const auto &fmt = date_formats.at(index);
-			ss.clear();
-			ss.str(str);
-			
-			ss >> std::chrono::parse(fmt, tp);
-
-			if (!ss.fail()) {
-				success = true;
-				prefered_fmt = index;
-				break;
-			}
-		}
-
-		if (!success) {
-			prefered_fmt = 0;
-			throw std::runtime_error(fmt::format("Failed to parse date: \"{}\"", str));
-		}
-
-		return std::chrono::system_clock::to_time_t(tp);
-#endif
 	}
 
 	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading)
