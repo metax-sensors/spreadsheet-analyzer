@@ -17,7 +17,7 @@ CPMAddPackage(
 if (fontawesome_ADDED)
 	add_custom_command(
 		OUTPUT fontawesome.c
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/binary_to_compressed
+		COMMAND $<TARGET_FILE:binary_to_compressed>
 			-nostatic
 			${fontawesome_SOURCE_DIR}/fa-solid-900.ttf
 			font_fontawesome

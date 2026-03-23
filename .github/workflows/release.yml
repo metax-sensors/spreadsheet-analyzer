@@ -1,0 +1,159 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            build_type: Release
+            artifact_name: spreadsheet_analyzer.exe
+            asset_name: spreadsheet-analyzer-windows
+
+          - os: ubuntu-latest
+            build_type: Release
+            artifact_name: spreadsheet_analyzer
+            asset_name: spreadsheet-analyzer-linux
+
+          - os: macos-latest
+            build_type: Release
+            artifact_name: spreadsheet_analyzer.app
+            asset_name: spreadsheet-analyzer-macos-arm
+            dmg_name: spreadsheet-analyzer-macos-arm.dmg
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            pkg-config \
+            libgtk-3-dev \
+            zlib1g-dev \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxss-dev \
+            libxext-dev \
+            libxtst-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libpulse-dev
+
+      - name: Set up Visual Studio
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Install LLVM and Ninja
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install llvm ninja --yes
+          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Create build directory
+        run: mkdir build
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -B build -G "Ninja Multi-Config" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Configure CMake (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel ${{ env.NUMBER_OF_PROCESSORS }}
+
+      - name: Build (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel $(if [ "$RUNNER_OS" = "macOS" ]; then sysctl -n hw.ncpu; else nproc; fi)
+
+      - name: Create macOS DMG
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dmg_temp
+          cp -r build/${{ matrix.artifact_name }} dmg_temp/
+          hdiutil create -volname "Spreadsheet Analyzer" -srcfolder dmg_temp -ov -format UDZO "build/${{ matrix.dmg_name }}"
+
+      - name: Zip macOS App Bundle
+        if: runner.os == 'macOS'
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/${{ matrix.artifact_name }} build/${{ matrix.asset_name }}.app.zip
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        id: create_release
+
+      - name: Upload Windows EXE
+        if: runner.os == 'Windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/${{ matrix.build_type }}/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux binary
+        if: runner.os == 'Linux'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS App Bundle
+        if: runner.os == 'macOS'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/${{ matrix.asset_name }}.app.zip
+          asset_name: ${{ matrix.asset_name }}.app.zip
+          asset_content_type: application/zip
+
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/${{ matrix.dmg_name }}
+          asset_name: ${{ matrix.asset_name }}.dmg
+          asset_content_type: application/octet-stream

@@ -1,0 +1,44 @@
+name: Build macOS ARM
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Create build directory
+        run: mkdir build
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel $(sysctl -n hw.ncpu)
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg_temp
+          cp -r build/spreadsheet_analyzer.app dmg_temp/
+          hdiutil create -volname "Spreadsheet Analyzer" -srcfolder dmg_temp -ov -format UDZO build/spreadsheet-analyzer-macos-arm-${{ matrix.build_type }}.dmg
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spreadsheet-analyzer-macos-arm-${{ matrix.build_type }}
+          path: |
+            build/spreadsheet_analyzer.app
+            build/spreadsheet-analyzer-macos-arm-${{ matrix.build_type }}.dmg
+          if-no-files-found: error

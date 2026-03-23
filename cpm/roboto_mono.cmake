@@ -9,7 +9,7 @@ CPMAddPackage(
 if (roboto_mono_ADDED)
 	add_custom_command(
 		OUTPUT roboto_mono.c
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/binary_to_compressed
+		COMMAND $<TARGET_FILE:binary_to_compressed>
 			-nostatic
 			${roboto_mono_SOURCE_DIR}/static/RobotoMono-Regular.ttf
 			font_roboto_mono

@@ -10,5 +10,10 @@ CPMAddPackage(
 )
 
 if (sdl_image_ADDED)
+  set_target_properties(SDL3_image-static PROPERTIES
+    C_STANDARD 17
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+  )
   set_target_properties(SDL3_image-static PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:SDL3_image-static,INTERFACE_INCLUDE_DIRECTORIES>)
 endif()

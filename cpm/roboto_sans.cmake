@@ -9,7 +9,7 @@ CPMAddPackage(
 if (roboto_sans_ADDED)
 	add_custom_command(
 		OUTPUT roboto_sans.c
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/binary_to_compressed
+		COMMAND $<TARGET_FILE:binary_to_compressed>
 			-nostatic
 			${roboto_sans_SOURCE_DIR}/Roboto-Regular.ttf
 			font_roboto_sans
