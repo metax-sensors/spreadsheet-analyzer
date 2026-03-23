@@ -1,4 +1,4 @@
-## 1.1.1 (unreleased)
+## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances
 * update imgui to v1.92.6 (https://github.com/ocornut/imgui/releases/tag/v1.92.6)
 * update SDL to v3.4.2 (https://github.com/libsdl-org/SDL/releases/tag/release-3.4.2)
