@@ -1,4 +1,5 @@
 ## 1.1.2 (unreleased)
+* fix dispay scaling issues
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances

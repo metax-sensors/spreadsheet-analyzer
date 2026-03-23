@@ -208,6 +208,11 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 	}
 
 	app_state.display_scale = SDL_GetWindowDisplayScale(window);
+	
+	if (!SDL_SetRenderScale(app_state.renderer, app_state.display_scale, app_state.display_scale)) {
+		spdlog::warn("Failed to set renderer scale: {}", SDL_GetError());
+	}
+
 	spdlog::debug("Display scale: {}x", app_state.display_scale);
 
 	IMGUI_CHECKVERSION();
@@ -219,7 +224,6 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 	addFonts();
 
 	io.FontDefault = getFont(fontList::ROBOTO_SANS_16);
-	io.FontGlobalScale = app_state.display_scale;
 
 	// Setup Dear ImGui style
 	try {
@@ -289,7 +293,11 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 
 			if (event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) {
 				app_state.display_scale = SDL_GetWindowDisplayScale(window);
-				io.FontGlobalScale = app_state.display_scale;
+				
+				if (!SDL_SetRenderScale(app_state.renderer, app_state.display_scale, app_state.display_scale)) {
+					spdlog::warn("Failed to set renderer scale: {}", SDL_GetError());
+				}
+				
 				spdlog::debug("Display scale changed to {}x", app_state.display_scale);
 			}
 		}
@@ -494,14 +502,17 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 									background_color.w);
 		SDL_RenderClear(app_state.renderer);
 
-		const SDL_FRect texture_rect{
-			.x = io.DisplaySize.x - (logo_size.x * app_state.display_scale) - (30.0f * app_state.display_scale),
-			.y = io.DisplaySize.y - (logo_size.y * app_state.display_scale) - (30.0f * app_state.display_scale),
-			.w = logo_size.x * app_state.display_scale,
-			.h = logo_size.y * app_state.display_scale
-		};
-
 		if (logo_texture != nullptr) {
+			const float logo_width = logo_size.x;
+			const float logo_height = logo_size.y;
+			const float margin = 30.0f;
+			const SDL_FRect texture_rect{
+				.x = io.DisplaySize.x - logo_width - margin,
+				.y = io.DisplaySize.y - logo_height - margin,
+				.w = logo_width,
+				.h = logo_height,
+			};
+
 			SDL_RenderTexture(app_state.renderer, logo_texture, nullptr, &texture_rect); 
 		}
 

@@ -43,10 +43,8 @@ auto showAboutScreen() -> void {
 		return;
 	}
 
-	const auto display_scale = app_state.display_scale;
-
 	const auto viewport_size = ImGui::GetIO().DisplaySize;
-	const auto window_size = ImVec2{500 * display_scale, 700 * display_scale};
+	const auto window_size = ImVec2{500.0f, 700.0f};
 	const auto window_pos = ImVec2{(viewport_size.x - window_size.x) * 0.5f, (viewport_size.y - window_size.y) * 0.5f};
 	
 	ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
@@ -81,8 +79,8 @@ auto showAboutScreen() -> void {
 
 		// Display the icon with padding
 		if (icon_texture != 0) {
-			const float icon_size = 128.0f * display_scale;
-			const float padding = 10.0f * display_scale;  // Padding amount
+			const float icon_size = 128.0f;
+			const float padding = 10.0f;  // Padding amount
 			
 			// Add padding before image
 			ImGui::Dummy(ImVec2(0.0f, padding));
@@ -112,8 +110,8 @@ auto showAboutScreen() -> void {
 
 		for (const auto &library : libraries) {
 			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_TableHeaderBg));
-			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 50.0f * display_scale);
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {12.0f * display_scale, 3.0f * display_scale});
+			ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 50.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {12.0f, 3.0f});
 
 			if (ImGui::BeginChild(
 					library.link, ImVec2(),
@@ -126,7 +124,7 @@ auto showAboutScreen() -> void {
 			ImGui::EndChild();
 
 			ImGui::SameLine();
-			if (ImGui::GetCursorPosX() > (width - (150.0f * display_scale))) {
+			if (ImGui::GetCursorPosX() > (width - 150.0f)) {
 				ImGui::NewLine();
 			}
 

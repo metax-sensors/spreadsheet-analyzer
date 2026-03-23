@@ -4,3 +4,4 @@ build*/
 Testdata/
 data.csv
 *.profraw
+.DS_Store
