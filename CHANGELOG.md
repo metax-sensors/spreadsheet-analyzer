@@ -8,7 +8,6 @@
 * update cxxopts to v3.3.1 (https://github.com/jarro2783/cxxopts/releases/tag/v3.3.1)
 * update expected to v1.3.1 (https://github.com/TartanLlama/expected/releases/tag/v1.3.1)
 * update fast_float to v8.2.4 (https://github.com/fastfloat/fast_float/releases/tag/v8.2.4)
-* update implot to v0.17
 
 ## 1.1.0 (14.03.2025)
 * move configuration of maximum displayed data points to settings menu
