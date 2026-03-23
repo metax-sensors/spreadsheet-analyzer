@@ -41,6 +41,47 @@ add_executable(spreadsheet_analyzer
 	src/window_context.cpp
 )
 
+if(APPLE)
+	set(MACOS_APP_ICON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/assets/2025_02_ICON_flat.png")
+	set(MACOS_APP_ICONSET_DIR "${CMAKE_CURRENT_BINARY_DIR}/app.iconset")
+	set(MACOS_APP_ICON "${CMAKE_CURRENT_BINARY_DIR}/app_icon.icns")
+
+	add_custom_command(
+		OUTPUT ${MACOS_APP_ICON}
+		COMMAND ${CMAKE_COMMAND} -E rm -rf ${MACOS_APP_ICONSET_DIR}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${MACOS_APP_ICONSET_DIR}
+		COMMAND sips -z 16 16 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_16x16.png
+		COMMAND sips -z 32 32 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_16x16@2x.png
+		COMMAND sips -z 32 32 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_32x32.png
+		COMMAND sips -z 64 64 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_32x32@2x.png
+		COMMAND sips -z 128 128 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_128x128.png
+		COMMAND sips -z 256 256 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_128x128@2x.png
+		COMMAND sips -z 256 256 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_256x256.png
+		COMMAND sips -z 512 512 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_256x256@2x.png
+		COMMAND sips -z 512 512 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_512x512.png
+		COMMAND sips -z 1024 1024 ${MACOS_APP_ICON_SOURCE} --out ${MACOS_APP_ICONSET_DIR}/icon_512x512@2x.png
+		COMMAND iconutil -c icns ${MACOS_APP_ICONSET_DIR} -o ${MACOS_APP_ICON}
+		COMMAND ${CMAKE_COMMAND} -E rm -rf ${MACOS_APP_ICONSET_DIR}
+		DEPENDS ${MACOS_APP_ICON_SOURCE}
+		VERBATIM
+	)
+
+	add_custom_target(generate_macos_icon ALL DEPENDS ${MACOS_APP_ICON})
+	add_dependencies(spreadsheet_analyzer generate_macos_icon)
+
+	target_sources(spreadsheet_analyzer PRIVATE ${MACOS_APP_ICON})
+	set_source_files_properties(${MACOS_APP_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
+	set_target_properties(spreadsheet_analyzer PROPERTIES
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_ICON_FILE app_icon.icns
+		MACOSX_BUNDLE_BUNDLE_NAME "Spreadsheet Analyzer"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "com.bestsens.spreadsheet-analyzer"
+		MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+		MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+	)
+endif()
+
 if(WIN32)
 	target_sources(spreadsheet_analyzer PRIVATE
 		assets/manifest.manifest
