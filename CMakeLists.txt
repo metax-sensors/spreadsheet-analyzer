@@ -165,6 +165,15 @@ target_link_libraries(spreadsheet_analyzer PRIVATE
 )
 target_include_directories(spreadsheet_analyzer PRIVATE ${OPENGL_INCLUDE_DIR})
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	find_library(GCOV_LIB gcov)
+	if(GCOV_LIB)
+		target_link_libraries(spreadsheet_analyzer PRIVATE ${GCOV_LIB})
+	else()
+		target_link_libraries(spreadsheet_analyzer PRIVATE -lgcov)
+	endif()
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
 	target_include_directories(spreadsheet_analyzer PRIVATE
 		${CMAKE_CURRENT_BINARY_DIR}
