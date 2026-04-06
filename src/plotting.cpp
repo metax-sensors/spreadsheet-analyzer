@@ -463,10 +463,15 @@ namespace {
 				const auto value_string = fmt::format("{:g}{}{}", val_y, col.unit.empty() ? "" : " ", col.unit);				
 				const auto annotation_offset = getAnnotationOffset(val_x, val_y);
 
-				ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
-				ImPlot::SetNextMarkerStyle(ImPlotMarker_Square, 5.0f, plot_color, IMPLOT_AUTO, plot_color);
-				ImPlot::PlotScatter(scatter_line_name.c_str(), &val_x, &val_y, 1);
-				ImPlot::PopStyleVar();
+				auto spec = ImPlotSpec{};
+				spec.LineWeight = IMPLOT_AUTO;
+				spec.Marker = ImPlotMarker_Square;
+				spec.MarkerSize = 5.0f;
+				spec.MarkerLineColor = plot_color;
+				spec.MarkerFillColor = plot_color;
+				spec.FillAlpha = 0.25f;
+
+				ImPlot::PlotScatter(scatter_line_name.c_str(), &val_x, &val_y, 1, spec);
 				ImPlot::Annotation(val_x, val_y, plot_color, annotation_offset, false, "%s", value_string.c_str());
 			}
 	}
@@ -499,29 +504,32 @@ namespace {
 							  .count = padded_count,
 							  .linked_date_range = date_lims};
 
+		auto spec = ImPlotSpec{};
+		spec.LineColor = plot_color;
+
 		switch (col.data_type) {
 			using enum data_type_t;
 		case BOOLEAN:
-			ImPlot::SetNextFillStyle(plot_color, 0.8f);
-			ImPlot::PlotDigitalG(col.name.c_str(), plotDict, &plot_data, padded_count);
+			spec.LineWeight = 0.8f;
+			spec.Size = 50.0f;
+			ImPlot::PlotDigitalG(col.name.c_str(), plotDict, &plot_data, padded_count, spec);
 			break;
 		default:
-			ImPlot::SetNextLineStyle(plot_color);
-
 			if (reduction_factor > 1) {
 				const auto shaded_name = "##" + col.name + "##shaded";
-				ImPlot::PlotLineG(col.name.c_str(), plotDictMean, &plot_data, padded_count);
+				ImPlot::PlotLineG(col.name.c_str(), plotDictMean, &plot_data, padded_count, spec);
+
+				spec.LineWeight = 0.25f;
 
 				if (reduction_factor >= 100) {
-					ImPlot::SetNextFillStyle(plot_color, 0.25f);
 					ImPlot::PlotShadedG(shaded_name.c_str(), plotDictStdMinus, &plot_data, plotDictStdPlus, &plot_data,
-										padded_count);
+										padded_count, spec);
 
 				} else {
 					const auto cursor_color = getCursorColor();
-					ImPlot::SetNextFillStyle(cursor_color, 0.25f);
+					spec.LineColor = cursor_color;
 					ImPlot::PlotShadedG(shaded_name.c_str(), plotDictMin, &plot_data, plotDictMax, &plot_data,
-										padded_count);
+										padded_count, spec);
 				}
 			} else {
 				ImPlot::PlotLineG(col.name.c_str(), plotDict, &plot_data, padded_count);
@@ -637,8 +645,12 @@ namespace {
 		if ((app_state.always_show_cursor || app_state.is_ctrl_pressed) &&
 			app_state.global_x_mouse_position >= static_cast<double>(col.timestamp->front()) &&
 			app_state.global_x_mouse_position <= static_cast<double>(col.timestamp->back())) {
-			ImPlot::SetNextLineStyle(cursor_color, 1.0f);
-			ImPlot::PlotInfLines(inf_line_name.c_str(), &app_state.global_x_mouse_position, 1);
+
+			auto spec = ImPlotSpec{};
+			spec.LineColor = cursor_color;
+			spec.LineWeight = 1.0f;
+
+			ImPlot::PlotInfLines(inf_line_name.c_str(), &app_state.global_x_mouse_position, 1, spec);
 		}
 	}
 

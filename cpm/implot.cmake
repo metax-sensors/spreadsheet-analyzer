@@ -1,8 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME implot_external
-  GIT_REPOSITORY https://github.com/epezent/implot.git
-  GIT_TAG 81b8b1951392767cf458508385fa025fd087a252
+  VERSION 1.0
+  URL https://github.com/epezent/implot/releases/download/v1.0/implot-v1.0.tar.gz
+  URL_HASH SHA256=20ca14d5a46f36a650746096c74eba8bea99c9432cd3c877343b96b17a6ae566
 )
 
 if (implot_external_ADDED)

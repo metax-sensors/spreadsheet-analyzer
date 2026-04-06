@@ -1,6 +1,7 @@
 ## 1.1.2 (unreleased)
 * fix dispay scaling issues
 * create MacOS app bundle
+* update implot to v1.0 (https://github.com/epezent/implot/releases/tag/v1.0)
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances
