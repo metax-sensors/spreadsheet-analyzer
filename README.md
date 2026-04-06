@@ -55,7 +55,10 @@ The first column of a CSV file is expected to contain a timestamp. The following
 |---|---|
 | `YYYY/MM/DD HH:MM:SS` | `2024/03/15 14:30:00` |
 | `YYYY-MM-DD HH:MM:SS` | `2024-03-15 14:30:00` |
+| `YYYY-MM-DDTHH:MM:SS` | `2024-03-15T14:30:00` (ISO 8601) |
 | `DD.MM.YYYY HH:MM:SS` | `15.03.2024 14:30:00` |
+| `DD/MM/YYYY HH:MM:SS` | `15/03/2024 14:30:00` |
+| `MM/DD/YYYY HH:MM:SS` | `03/15/2024 14:30:00` |
 
 Numeric columns without a timestamp are also supported.
 

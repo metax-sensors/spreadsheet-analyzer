@@ -32,7 +32,10 @@ namespace {
 	const auto date_formats = std::array{
 		"%Y/%m/%d %H:%M:%S",
 		"%Y-%m-%d %H:%M:%S",
-		"%d.%m.%Y %H:%M:%S"
+		"%Y-%m-%dT%H:%M:%S",
+		"%d.%m.%Y %H:%M:%S",
+		"%d/%m/%Y %H:%M:%S",
+		"%m/%d/%Y %H:%M:%S"
 	};
 
 	auto parseDate(const std::string &str, size_t &prefered_fmt) -> time_t {
