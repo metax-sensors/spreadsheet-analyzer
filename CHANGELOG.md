@@ -2,6 +2,8 @@
 * fix dispay scaling issues
 * create MacOS app bundle
 * update implot to v1.0 (https://github.com/epezent/implot/releases/tag/v1.0)
+* update SDL to v3.4.4 (https://github.com/libsdl-org/SDL/releases/tag/release-3.4.4)
+* update SDL_image to v3.4.2 (https://github.com/libsdl-org/SDL_image/releases/tag/release-3.4.2)
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances
