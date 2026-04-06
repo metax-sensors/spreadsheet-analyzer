@@ -6,6 +6,7 @@
 * update SDL_image to v3.4.2 (https://github.com/libsdl-org/SDL_image/releases/tag/release-3.4.2)
 * update csv-parser to v3.0.0 (https://github.com/vincentlaucsb/csv-parser/releases/tag/3.0.0)
 * add support for ISO 8601 (`YYYY-MM-DDTHH:MM:SS`), European slash (`DD/MM/YYYY HH:MM:SS`), and US (`MM/DD/YYYY HH:MM:SS`) timestamp formats
+* show CSV import configuration dialog on parse failure, allowing per-file configuration of field delimiter, decimal separator, and date format
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances

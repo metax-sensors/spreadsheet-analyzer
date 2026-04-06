@@ -44,3 +44,10 @@ struct immediate_dict {
 
 	std::vector<std::pair<time_t, double>> data{};
 };
+
+struct csv_parse_config_t {
+	char        field_delimiter   {','};
+	char        decimal_separator {','};
+	std::string date_format       {};    // empty = auto-detect
+	size_t      date_column_index {0};
+};

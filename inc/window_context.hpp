@@ -114,8 +114,8 @@ private:
 
 class CSVWindowContext : public WindowContext {
 public:
-	using function_signature =
-		std::function<std::vector<data_dict_t>(std::vector<std::filesystem::path>, size_t &, const bool &)>;
+	using function_signature = std::function<std::vector<data_dict_t>(
+		std::vector<std::filesystem::path>, size_t&, const bool&, const csv_parse_config_t&, std::string&)>;
 
 	CSVWindowContext() = default;
 	explicit CSVWindowContext(std::vector<data_dict_t> new_data) : data{std::move(new_data)} {}
@@ -145,23 +145,33 @@ public:
 	};
 
 	CSVWindowContext(CSVWindowContext &&other) noexcept
-		: WindowContext(std::move(other)), data{std::move(other.data)}, global_x_link{other.global_x_link} {
+		: WindowContext(std::move(other)), data{std::move(other.data)}, global_x_link{other.global_x_link},
+		  stored_paths{std::move(other.stored_paths)}, stored_fn{std::move(other.stored_fn)},
+		  current_config{other.current_config}, needs_config_dialog{other.needs_config_dialog},
+		  config_popup_opened{other.config_popup_opened} {
 		std::swap(this->finished_files, other.finished_files);
 		std::swap(this->stop_loading, other.stop_loading);
 		std::swap(this->data_dict_f, other.data_dict_f);
 		std::swap(this->required_files, other.required_files);
+		std::swap(this->parse_error_sample, other.parse_error_sample);
 		spdlog::debug("Moved window context with UUID: {}", this->getUUID());
 	}
 
 	auto operator=(CSVWindowContext &&other) noexcept -> CSVWindowContext & {
 		if (this != &other) {
-			this->data = std::move(other.data);
+			this->data          = std::move(other.data);
 			this->global_x_link = other.global_x_link;
+			this->stored_paths  = std::move(other.stored_paths);
+			this->stored_fn     = std::move(other.stored_fn);
+			this->current_config       = other.current_config;
+			this->needs_config_dialog  = other.needs_config_dialog;
+			this->config_popup_opened  = other.config_popup_opened;
 
 			std::swap(this->finished_files, other.finished_files);
 			std::swap(this->stop_loading, other.stop_loading);
 			std::swap(this->data_dict_f, other.data_dict_f);
 			std::swap(this->required_files, other.required_files);
+			std::swap(this->parse_error_sample, other.parse_error_sample);
 		}
 
 		return *this;
@@ -209,6 +219,12 @@ public:
 			return;
 		}
 
+		this->stored_paths = paths;
+		this->stored_fn    = fn;
+		this->needs_config_dialog  = false;
+		this->config_popup_opened  = false;
+		this->parse_error_sample->clear();
+
 		const auto temp_title = [&paths]() -> std::string {
 			if (paths.size() > 1) {
 				return paths.front().parent_path().filename().string();
@@ -220,16 +236,18 @@ public:
 		this->required_files = paths.size();
 
 		// NOLINTNEXTLINE(bugprone-exception-escape)
-		this->data_dict_f =
-			std::async(std::launch::async, [this, fn, paths, &temp_title]() -> std::vector<data_dict_t> {
+		this->data_dict_f = std::async(
+			std::launch::async,
+			[this, fn, paths, config = this->current_config, title = temp_title]() -> std::vector<data_dict_t> {
 				try {
 					auto &temp_finished_files = *this->finished_files;
 					const auto &temp_stop_loading = *this->stop_loading;
-					return fn(paths, temp_finished_files, temp_stop_loading);
+					auto &temp_error = *this->parse_error_sample;
+					return fn(paths, temp_finished_files, temp_stop_loading, config, temp_error);
 				} catch (const std::exception &e) {
-					spdlog::error("error loading files for {}: {}", temp_title, e.what());
+					spdlog::error("error loading files for {}: {}", title, e.what());
 				} catch (...) {
-					spdlog::error("error loading files for {}", temp_title);
+					spdlog::error("error loading files for {}", title);
 				}
 
 				return {};
@@ -243,8 +261,31 @@ public:
 			if (!temp_data_dict.empty()) {
 				this->data = temp_data_dict;
 				this->data.front().visible = true;
+				this->needs_config_dialog = false;
+			} else if (!this->parse_error_sample->empty()) {
+				this->needs_config_dialog = true;
 			}
 		}
+	}
+
+	[[nodiscard]] auto needsConfigDialog() const -> bool { return this->needs_config_dialog; }
+	[[nodiscard]] auto isConfigPopupOpened() const -> bool { return this->config_popup_opened; }
+	auto markPopupOpened() -> void { this->config_popup_opened = true; }
+	[[nodiscard]] auto getParseErrorSample() const -> std::string_view { return *this->parse_error_sample; }
+	[[nodiscard]] auto getStoredPaths() const -> const std::vector<std::filesystem::path> & { return this->stored_paths; }
+	[[nodiscard]] auto getCurrentConfig() const -> const csv_parse_config_t & { return this->current_config; }
+
+	auto retryWithConfig(csv_parse_config_t config) -> void {
+		this->current_config      = std::move(config);
+		this->needs_config_dialog = false;
+		this->config_popup_opened = false;
+		this->loadFiles(this->stored_paths, this->stored_fn);
+	}
+
+	auto cancelConfigDialog() -> void {
+		this->needs_config_dialog = false;
+		this->config_popup_opened = false;
+		this->scheduleForDeletion();
 	}
 
 	struct loading_status_t {
@@ -284,4 +325,12 @@ private:
 	size_t required_files{0};
 
 	std::vector<std::string> assigned_plot_ids{};
+
+	// CSV import config dialog state
+	std::vector<std::filesystem::path> stored_paths{};
+	function_signature stored_fn{};
+	csv_parse_config_t current_config{};
+	std::shared_ptr<std::string> parse_error_sample{std::make_shared<std::string>()};
+	bool needs_config_dialog{false};
+	bool config_popup_opened{false};
 };

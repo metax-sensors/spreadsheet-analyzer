@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <ranges>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -29,7 +30,7 @@
 #include "uuid_generator.hpp"
 
 namespace {
-	const auto date_formats = std::array{
+	constexpr auto default_date_formats = std::array{
 		"%Y/%m/%d %H:%M:%S",
 		"%Y-%m-%d %H:%M:%S",
 		"%Y-%m-%dT%H:%M:%S",
@@ -38,20 +39,27 @@ namespace {
 		"%m/%d/%Y %H:%M:%S"
 	};
 
-	auto parseDate(const std::string &str, size_t &prefered_fmt) -> time_t {
+	auto buildFormatList(const csv_parse_config_t& config) -> std::vector<std::string_view> {
+		if (!config.date_format.empty()) {
+			return {std::string_view{config.date_format}};
+		}
+		return {default_date_formats.begin(), default_date_formats.end()};
+	}
+
+	auto parseDate(const std::string& str, size_t& prefered_fmt, std::span<const std::string_view> formats) -> time_t {
 #ifndef HAVE_STD_CHRONO_PARSE
 		std::tm tm{};
 		bool success = false;
 
-		for (size_t i = 0; i < date_formats.size(); ++i) {
-			const auto index = (i + prefered_fmt) % date_formats.size();
-			const auto &fmt = date_formats.at(index);
-			
+		for (size_t i = 0; i < formats.size(); ++i) {
+			const auto index = (i + prefered_fmt) % formats.size();
+			const auto& fmt = formats[index];
+
 			// Reset tm struct
 			tm = {};
-			
-			char* result = strptime(str.c_str(), fmt, &tm);
-			
+
+			char* result = strptime(str.c_str(), fmt.data(), &tm);
+
 			if (result != nullptr && *result == '\0') {
 				success = true;
 				prefered_fmt = index;
@@ -71,13 +79,13 @@ namespace {
 		std::chrono::sys_seconds tp{};
 		bool success = false;
 
-		for (size_t i = 0; i < date_formats.size(); ++i) {
-			const auto index = (i + prefered_fmt) % date_formats.size();
-			const auto &fmt = date_formats.at(index);
+		for (size_t i = 0; i < formats.size(); ++i) {
+			const auto index = (i + prefered_fmt) % formats.size();
+			const auto &fmt = formats[index];
 			ss.clear();
 			ss.str(str);
-			
-			ss >> std::chrono::parse(fmt, tp);
+
+			ss >> std::chrono::parse(std::string{fmt}, tp);
 
 			if (!ss.fail()) {
 				success = true;
@@ -95,16 +103,29 @@ namespace {
 #endif
 	}
 
-	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading)
+	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading,
+	             const csv_parse_config_t &config, std::string &parse_error_sample)
 		-> std::unordered_map<std::string, immediate_dict> {
 		using namespace csv;
+
+		CSVFormat format;
+		format.delimiter(config.field_delimiter);
 
 		std::vector<std::string> col_names{};
 		std::unordered_map<std::string, immediate_dict> values{};
 
-		CSVReader reader(path.string());
+		CSVReader reader(path.string(), format);
 
-		for (const auto &header_string : reader.get_col_names() | std::ranges::views::drop(1)) {
+		const auto all_col_names = reader.get_col_names();
+		const auto date_col_idx = all_col_names.empty()
+		    ? 0uz
+		    : std::min(config.date_column_index, all_col_names.size() - 1uz);
+
+		for (size_t i = 0; i < all_col_names.size(); ++i) {
+			if (i == date_col_idx) {
+				continue;
+			}
+			const auto &header_string = all_col_names[i];
 			if (header_string.empty()) {
 				continue;
 			}
@@ -115,23 +136,30 @@ namespace {
 			col_names.push_back(header_string);
 		}
 
+		if (col_names.empty()) {
+			parse_error_sample = "(no data columns found)";
+			return {};
+		}
+
+		const auto fmt_list = buildFormatList(config);
+		const fast_float::parse_options parse_opts{fast_float::chars_format::general, config.decimal_separator};
+
 		bool line_error_shown{false};
 		std::vector<bool> col_error_shown(col_names.size(), false);
 		size_t prefered_date_fmt = 0;
 
 		for (size_t line = 0; auto &row : reader) {
 			try {
-				const auto date_str = row[0].get<std::string>();
-				const auto date = parseDate(date_str, prefered_date_fmt);
+				const auto date_str = row[date_col_idx].get<std::string>();
+				const auto date = parseDate(date_str, prefered_date_fmt, fmt_list);
 
 				for (size_t col = 0; const auto &col_name : col_names) {
 					try {
 						const auto val = row[col_name].get<std::string>();
 						double dbl_val{std::numeric_limits<double>::quiet_NaN()};
 
-						static constexpr fast_float::parse_options options{fast_float::chars_format::general, ','};
 						const auto result =
-							fast_float::from_chars_advanced(val.data(), val.data() + val.size(), dbl_val, options);
+							fast_float::from_chars_advanced(val.data(), val.data() + val.size(), dbl_val, parse_opts);
 						if (result.ec == std::errc() && std::isfinite(dbl_val)) {
 							values[col_name].data.emplace_back(date, dbl_val);
 						}
@@ -153,6 +181,9 @@ namespace {
 				if (!line_error_shown) {
 					spdlog::warn("Error parsing line {}:{}: {}", path.filename().string(), line + 1, e.what());
 					line_error_shown = true;
+					if (parse_error_sample.empty()) {
+						try { parse_error_sample = row[0].get<std::string>(); } catch (...) {}
+					}
 				}
 			}
 
@@ -161,6 +192,11 @@ namespace {
 			}
 
 			++line;
+		}
+
+		const auto any_data = std::ranges::any_of(values, [](const auto &p) { return !p.second.data.empty(); });
+		if (!any_data && parse_error_sample.empty()) {
+			parse_error_sample = "(no data could be parsed)";
 		}
 
 		return values;
@@ -219,8 +255,8 @@ auto preparePaths(std::vector<std::filesystem::path> paths) -> std::vector<std::
 	return files;
 }
 
-auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished, const bool &stop_loading)
-	-> std::vector<data_dict_t> {
+auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished, const bool &stop_loading,
+              const csv_parse_config_t &config, std::string &parse_error_out) -> std::vector<data_dict_t> {
 	if (paths.empty()) {
 		return {};
 	}
@@ -241,11 +277,11 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 		contexts.push_back({.index = ++i, .path = path});
 	}
 
-	auto fn = [&contexts, &stop_loading, &finished](auto &ctx) {
+	auto fn = [&contexts, &stop_loading, &finished, &config, &parse_error_out](auto &ctx) {
 		if (!stop_loading) {
 			spdlog::info("Loading file: {} ({}/{})...", ctx.path.filename().string(), ctx.index, contexts.size());
 			try {
-				ctx.values = loadCSV(ctx.path, stop_loading);
+				ctx.values = loadCSV(ctx.path, stop_loading, config, parse_error_out);
 			} catch (const std::exception &e) {
 				spdlog::error("{}", e.what());
 			}

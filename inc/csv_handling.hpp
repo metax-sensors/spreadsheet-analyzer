@@ -7,5 +7,5 @@
 #include "dicts.hpp"
 
 auto preparePaths(std::vector<std::filesystem::path> paths) -> std::vector<std::filesystem::path>;
-auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished, const bool &stop_loading)
-	-> std::vector<data_dict_t>;
+auto loadCSVs(const std::vector<std::filesystem::path>& paths, size_t& finished, const bool& stop_loading,
+			  const csv_parse_config_t& config, std::string& parse_error_out) -> std::vector<data_dict_t>;
