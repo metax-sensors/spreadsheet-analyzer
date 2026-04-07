@@ -127,7 +127,7 @@ namespace {
 	}
 }  // namespace
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #ifndef DEBUG
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
@@ -152,18 +152,18 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			options.parse_positional({"filename"});
 			auto result = options.parse(argc, argv);
 
-			if (result.count("help") != 0u) {
+			if (result.contains("help")) {
 				spdlog::info(options.help());
 				return EXIT_SUCCESS;
 			}
 
-			if (result.count("filename") > 0u) {
+			if (result.contains("filename")) {
 				for (const auto& file : result["filename"].as<std::vector<std::string>>()) {
-					commandline_paths.push_back(std::filesystem::path(file));
+					commandline_paths.emplace_back(file);
 				}
 			}
 
-			if (result.count("verbose") == 1u) {
+			if (result.contains("verbose")) {
 				spdlog::set_level(spdlog::level::debug);
 				app_state.show_debug_menu = true;
 				spdlog::info("verbose output enabled");
@@ -374,8 +374,8 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 		// CSV import config dialog
 		{
 			static csv_parse_config_t popup_config{};
-			static int delim_choice{0};       // 0=comma 1=semicolon 2=tab 3=other
-			static char custom_delim[2]{','};
+			static int delim_choice{1};       // 0=comma 1=semicolon 2=tab 3=other
+			static std::string custom_delim{","};
 			static int decimal_choice{1};     // 0=period 1=comma
 			static std::array<char, 64> date_fmt_buf{};
 			static int date_col_choice{0};
@@ -466,7 +466,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 
 				ImGui::SeparatorText("Import settings");
 
-				ImGui::Text("Field delimiter");
+				ImGui::Text("Field delimiter");	 // NOLINT(hicpp-vararg)
 				ImGui::SameLine(160);
 				ImGui::RadioButton("Comma  ,",    &delim_choice, 0); ImGui::SameLine();
 				ImGui::RadioButton("Semicolon ;", &delim_choice, 1); ImGui::SameLine();
@@ -475,19 +475,20 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				if (delim_choice == 3) {
 					ImGui::SameLine();
 					ImGui::SetNextItemWidth(40);
-					ImGui::InputText("##custom_delim", custom_delim, sizeof(custom_delim));
+					ImGui::InputText("##custom_delim", custom_delim.data(), custom_delim.size());
 				}
 
-				ImGui::Text("Decimal separator");
+				ImGui::Text("Decimal separator");  // NOLINT(hicpp-vararg)
 				ImGui::SameLine(160);
 				ImGui::RadioButton("Period  .##dec", &decimal_choice, 0); ImGui::SameLine();
 				ImGui::RadioButton("Comma  ,##dec", &decimal_choice, 1);
 
-				ImGui::Text("Date format");
+				ImGui::Text("Date format");  // NOLINT(hicpp-vararg)
 				ImGui::SameLine(160);
 				ImGui::SetNextItemWidth(220);
 				ImGui::InputTextWithHint("##datefmt", "auto-detect", date_fmt_buf.data(), date_fmt_buf.size());
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					// NOLINTNEXTLINE(hicpp-vararg)
 					ImGui::SetTooltip(
 						"strptime format string, e.g.:\n"
 						"  %%Y-%%m-%%d %%H:%%M:%%S\n"
@@ -496,14 +497,14 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						"Leave empty for automatic detection.");
 				}
 
-				ImGui::Text("Date column");
+				ImGui::Text("Date column");  // NOLINT(hicpp-vararg)
 				ImGui::SameLine(160);
 				{
 					const char cur_delim = [&]() -> char {
 						switch (delim_choice) {
 							case 1:  return ';';
 							case 2:  return '\t';
-							case 3:  return (custom_delim[0] != '\0') ? custom_delim[0] : ',';
+							case 3:  return (!custom_delim.empty()) ? custom_delim[0] : ','; 
 							default: return ',';
 						}
 					}();
@@ -552,7 +553,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						case 0: popup_config.field_delimiter = ',';  break;
 						case 1: popup_config.field_delimiter = ';';  break;
 						case 2: popup_config.field_delimiter = '\t'; break;
-						default: popup_config.field_delimiter = (custom_delim[0] != '\0') ? custom_delim[0] : ','; break;
+						default: popup_config.field_delimiter = (!custom_delim.empty()) ? custom_delim[0] : ','; break;
 					}
 					popup_config.decimal_separator = (decimal_choice == 0) ? '.' : ',';
 					popup_config.date_format = std::string{date_fmt_buf.data(), date_fmt_buf.size()};
@@ -640,8 +641,8 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 
 				const auto padding = std::min(100.0f, window_content_size.x / 10.0f);
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + padding);
-				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + window_content_size.y / 2.0f - 10.0f);
-				ImGui::ProgressBar(progress, ImVec2(window_content_size.x - 2.0f * padding, 20.0f), label.c_str());
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (window_content_size.y / 2.0f) - 10.0f);
+				ImGui::ProgressBar(progress, ImVec2(window_content_size.x - (2.0f * padding), 20.0f), label.c_str());
 			} else {
 				if (!dict.empty()) {
 					ImGui::BeginChild("Column List", ImVec2(250, window_content_size.y));

@@ -7,7 +7,7 @@
 #ifndef HAVE_STD_CHRONO_PARSE
 #include <ctime>
 #endif
-#if not defined(__APPLE__)
+#ifndef __APPLE__
 #include <execution>
 #endif
 #include <filesystem>
@@ -146,8 +146,8 @@ namespace {
 		size_t checked_rows;
 	};
 
-	auto inferConfigFromLines(const std::vector<std::string>& lines,
-						 const csv_parse_config_t& current_config) -> std::optional<csv_parse_config_t> {
+	auto inferConfigFromLines(const std::vector<std::string>& lines, const csv_parse_config_t& current_config)
+		-> std::optional<csv_parse_config_t> {
 		if (lines.size() < 2) {
 			return std::nullopt;
 		}
@@ -166,7 +166,7 @@ namespace {
 			const size_t rows_to_check = std::min<size_t>(lines.size() - 1, 12);
 
 			for (size_t col = 0; col < max_columns; ++col) {
-				for (const auto format : default_date_formats) {
+				for (const auto* const format : default_date_formats) {
 					size_t date_score = 0;
 
 					for (size_t line_idx = 1; line_idx <= rows_to_check; ++line_idx) {
@@ -375,7 +375,7 @@ namespace {
 		}
 
 		const auto n = data.size() / 2;
-#if defined(__APPLE__)
+#ifdef __APPLE__
 		std::nth_element(data.begin(), data.begin() + static_cast<long>(n), data.end());
 #else
 		std::nth_element(std::execution::par_unseq, data.begin(), data.begin() + static_cast<long>(n), data.end());
@@ -386,7 +386,7 @@ namespace {
 		}
 
 		const auto val1 = data.at(n);
-#if defined(__APPLE__)
+#ifdef __APPLE__
 		const auto val2 =
 			*std::max_element(data.cbegin(), data.cbegin() + static_cast<long>(n));
 #else
@@ -421,8 +421,8 @@ auto preparePaths(std::vector<std::filesystem::path> paths) -> std::vector<std::
 	return files;
 }
 
-auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished, const bool &stop_loading,
-              const csv_parse_config_t &config, std::string &parse_error_out) -> std::vector<data_dict_t> {
+auto loadCSVs(const std::vector<std::filesystem::path>& paths, size_t& finished, const bool& stop_loading,
+			  const csv_parse_config_t& config, std::string& parse_error_out) -> std::vector<data_dict_t> {
 	if (paths.empty()) {
 		return {};
 	}
@@ -455,7 +455,7 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 		}
 	};
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 	std::for_each(contexts.begin(), contexts.end(), fn);
 #else
 	std::for_each(std::execution::seq, contexts.begin(), contexts.end(), fn);
@@ -484,7 +484,7 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 	values.reserve(values_temp.size());
 
 	for (auto &&[key, value] : values_temp) {
-#if defined(__APPLE__)
+#ifdef __APPLE__
 		std::sort(value.data.begin(), value.data.end(),
 				  [](const auto &a, const auto &b) { return a.first < b.first; });
 #else
