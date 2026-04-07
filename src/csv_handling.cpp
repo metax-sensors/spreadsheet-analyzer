@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #ifndef HAVE_STD_CHRONO_PARSE
 #include <ctime>
@@ -10,7 +11,9 @@
 #include <execution>
 #endif
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
+#include <optional>
 #include <ranges>
 #include <span>
 #include <sstream>
@@ -44,6 +47,169 @@ namespace {
 			return {std::string_view{config.date_format}};
 		}
 		return {default_date_formats.begin(), default_date_formats.end()};
+	}
+
+	auto splitLine(std::string_view line, const char delimiter) -> std::vector<std::string_view> {
+		std::vector<std::string_view> parts;
+		size_t start = 0;
+
+		while (start <= line.size()) {
+			const auto pos = line.find(delimiter, start);
+			if (pos == std::string_view::npos) {
+				parts.push_back(trim(line.substr(start)));
+				break;
+			}
+
+			parts.push_back(trim(line.substr(start, pos - start)));
+			start = pos + 1;
+		}
+
+		return parts;
+	}
+
+	auto readSampleLines(const std::filesystem::path& path, const size_t max_lines) -> std::vector<std::string> {
+		std::ifstream input(path);
+		if (!input) {
+			return {};
+		}
+
+		std::vector<std::string> lines;
+		lines.reserve(max_lines);
+
+		std::string line;
+		while (lines.size() < max_lines && std::getline(input, line)) {
+			if (!trim(line).empty()) {
+				lines.push_back(line);
+			}
+		}
+
+		return lines;
+	}
+
+	auto tryParseDateWithFormat(const std::string_view value, const std::string_view format) -> bool {
+#ifndef HAVE_STD_CHRONO_PARSE
+		std::tm tm{};
+		char *result = strptime(std::string{value}.c_str(), format.data(), &tm);
+		return result != nullptr && *result == '\0';
+#else
+		std::istringstream ss{std::string{value}};
+		std::chrono::sys_seconds tp{};
+		ss >> std::chrono::parse(std::string{format}, tp);
+		return !ss.fail();
+#endif
+	}
+
+	auto detectDecimalSeparator(const std::vector<std::string>& lines, const char delimiter,
+							const size_t date_column_index, const char fallback) -> char {
+		size_t comma_hits = 0;
+		size_t period_hits = 0;
+
+		for (size_t i = 1; i < lines.size(); ++i) {
+			const auto columns = splitLine(lines[i], delimiter);
+			for (size_t col = 0; col < columns.size(); ++col) {
+				if (col == date_column_index) {
+					continue;
+				}
+
+				const auto token = columns[col];
+				if (token.size() < 3) {
+					continue;
+				}
+
+				for (size_t idx = 1; idx + 1 < token.size(); ++idx) {
+					if (!std::isdigit(static_cast<unsigned char>(token[idx - 1])) ||
+						!std::isdigit(static_cast<unsigned char>(token[idx + 1]))) {
+						continue;
+					}
+
+					if (token[idx] == ',') {
+						++comma_hits;
+					} else if (token[idx] == '.') {
+						++period_hits;
+					}
+				}
+			}
+		}
+
+		if (comma_hits == period_hits) {
+			return fallback;
+		}
+
+		return (comma_hits > period_hits) ? ',' : '.';
+	}
+
+	struct inferred_config_t {
+		char field_delimiter;
+		size_t date_column_index;
+		std::string_view date_format;
+		size_t date_score;
+		size_t checked_rows;
+	};
+
+	auto inferConfigFromLines(const std::vector<std::string>& lines,
+						 const csv_parse_config_t& current_config) -> std::optional<csv_parse_config_t> {
+		if (lines.size() < 2) {
+			return std::nullopt;
+		}
+
+		constexpr std::array<char, 4> delimiter_candidates{',', ';', '\t', '|'};
+
+		std::optional<inferred_config_t> best{};
+
+		for (const auto delimiter : delimiter_candidates) {
+			const auto header_cols = splitLine(lines.front(), delimiter);
+			if (header_cols.size() < 2) {
+				continue;
+			}
+
+			const auto max_columns = header_cols.size();
+			const size_t rows_to_check = std::min<size_t>(lines.size() - 1, 12);
+
+			for (size_t col = 0; col < max_columns; ++col) {
+				for (const auto format : default_date_formats) {
+					size_t date_score = 0;
+
+					for (size_t line_idx = 1; line_idx <= rows_to_check; ++line_idx) {
+						const auto cols = splitLine(lines[line_idx], delimiter);
+						if (col >= cols.size()) {
+							continue;
+						}
+
+						if (tryParseDateWithFormat(cols[col], format)) {
+							++date_score;
+						}
+					}
+
+					if (!best.has_value() || date_score > best->date_score) {
+						best = inferred_config_t{
+							.field_delimiter = delimiter,
+							.date_column_index = col,
+							.date_format = format,
+							.date_score = date_score,
+							.checked_rows = rows_to_check
+						};
+					}
+				}
+			}
+		}
+
+		if (!best.has_value() || best->date_score == 0 || best->checked_rows == 0) {
+			return std::nullopt;
+		}
+
+		const size_t min_required = std::min<size_t>(3, best->checked_rows);
+		if (best->date_score < min_required) {
+			return std::nullopt;
+		}
+
+		auto detected = current_config;
+		detected.field_delimiter = best->field_delimiter;
+		detected.date_column_index = best->date_column_index;
+		detected.date_format = std::string{best->date_format};
+		detected.decimal_separator = detectDecimalSeparator(lines, detected.field_delimiter,
+											  detected.date_column_index, current_config.decimal_separator);
+
+		return detected;
 	}
 
 	auto parseDate(const std::string& str, size_t& prefered_fmt, std::span<const std::string_view> formats) -> time_t {
@@ -357,4 +523,14 @@ auto loadCSVs(const std::vector<std::filesystem::path> &paths, size_t &finished,
 	}
 
 	return values;
+}
+
+auto inferCSVParseConfig(const std::vector<std::filesystem::path>& paths,
+						 const csv_parse_config_t& current_config) -> std::optional<csv_parse_config_t> {
+	if (paths.empty()) {
+		return std::nullopt;
+	}
+
+	const auto sample_lines = readSampleLines(paths.front(), 16);
+	return inferConfigFromLines(sample_lines, current_config);
 }

@@ -394,6 +394,25 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			}
 
 			if (config_ctx != nullptr && !config_ctx->isConfigPopupOpened()) {
+				const auto inferred_config = inferCSVParseConfig(config_ctx->getStoredPaths(), config_ctx->getCurrentConfig());
+				if (inferred_config.has_value()) {
+					const auto &current = config_ctx->getCurrentConfig();
+					const bool changed = inferred_config->field_delimiter != current.field_delimiter ||
+										 inferred_config->decimal_separator != current.decimal_separator ||
+										 inferred_config->date_column_index != current.date_column_index ||
+										 inferred_config->date_format != current.date_format;
+
+					if (changed) {
+						config_ctx->retryWithConfig(*inferred_config);
+					}
+				}
+
+				if (config_ctx->getLoadingStatus().is_loading || !config_ctx->needsConfigDialog()) {
+					config_ctx = nullptr;
+				}
+			}
+
+			if (config_ctx != nullptr && !config_ctx->isConfigPopupOpened()) {
 				popup_config = config_ctx->getCurrentConfig();
 				decimal_choice = (popup_config.decimal_separator == '.') ? 0 : 1;
 				
