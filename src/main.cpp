@@ -1,12 +1,13 @@
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <list>
-#include <sstream>
 #include <ranges>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -108,6 +109,21 @@ namespace {
 		} catch (const std::exception &e) {
 			spdlog::warn("Error setting system locale: {}", e.what());
 		}
+	}
+
+	auto copyString(std::span<char> destination, const std::string_view source) -> void {
+		if (destination.empty()) {
+			return;
+		}
+
+#if defined(_MSC_VER) || defined(__STDC_LIB_EXT1__)
+		strncpy_s(destination.data(), destination.size(), source.data(), destination.size() - 1);
+#else
+		assert(source.size() < destination.size());
+		std::strncpy(destination.data(), source.data(),
+					 destination.size() - 1);		// NOLINT(bugprone-suspicious-stringview-data-usage)
+		destination[destination.size() - 1] = '\0'; // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+#endif
 	}
 }  // namespace
 
@@ -361,7 +377,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			static int delim_choice{0};       // 0=comma 1=semicolon 2=tab 3=other
 			static char custom_delim[2]{','};
 			static int decimal_choice{1};     // 0=period 1=comma
-			static char date_fmt_buf[64]{};
+			static std::array<char, 64> date_fmt_buf{};
 			static int date_col_choice{0};
 			static std::vector<std::string> preview_lines{};
 
@@ -378,13 +394,21 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			}
 
 			if (config_ctx != nullptr && !config_ctx->isConfigPopupOpened()) {
-				popup_config   = config_ctx->getCurrentConfig();
+				popup_config = config_ctx->getCurrentConfig();
 				decimal_choice = (popup_config.decimal_separator == '.') ? 0 : 1;
-				if      (popup_config.field_delimiter == ',')  { delim_choice = 0; }
-				else if (popup_config.field_delimiter == ';')  { delim_choice = 1; }
-				else if (popup_config.field_delimiter == '\t') { delim_choice = 2; }
-				else { delim_choice = 3; custom_delim[0] = popup_config.field_delimiter; }
-				strncpy(date_fmt_buf, popup_config.date_format.c_str(), sizeof(date_fmt_buf) - 1);
+				
+				if (popup_config.field_delimiter == ',') {
+					delim_choice = 0;
+				} else if (popup_config.field_delimiter == ';') {
+					delim_choice = 1;
+				} else if (popup_config.field_delimiter == '\t') {
+					delim_choice = 2;
+				} else {
+					delim_choice = 3;
+					custom_delim[0] = popup_config.field_delimiter;
+				}
+
+				copyString(std::span<char>{date_fmt_buf.data(), date_fmt_buf.size()}, popup_config.date_format);
 				date_col_choice = static_cast<int>(popup_config.date_column_index);
 
 				preview_lines.clear();
@@ -403,7 +427,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			ImGui::SetNextWindowSize(ImVec2(580, 0), ImGuiCond_Always);
 			if (ImGui::BeginPopupModal("CSV Import Configuration", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 				if (config_ctx != nullptr) {
-					ImGui::TextDisabled("Parse error: %s", std::string{config_ctx->getParseErrorSample()}.c_str());
+					ImGui::TextDisabled("Parse error: %s", std::string{config_ctx->getParseErrorSample()}.c_str()); // NOLINT(hicpp-vararg)
 				}
 				ImGui::Spacing();
 
@@ -443,7 +467,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				ImGui::Text("Date format");
 				ImGui::SameLine(160);
 				ImGui::SetNextItemWidth(220);
-				ImGui::InputTextWithHint("##datefmt", "auto-detect", date_fmt_buf, sizeof(date_fmt_buf));
+				ImGui::InputTextWithHint("##datefmt", "auto-detect", date_fmt_buf.data(), date_fmt_buf.size());
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					ImGui::SetTooltip(
 						"strptime format string, e.g.:\n"
@@ -496,7 +520,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 					} else {
 						ImGui::SetNextItemWidth(80);
 						ImGui::InputInt("##datecol", &date_col_choice, 1, 1);
-						if (date_col_choice < 0) { date_col_choice = 0; }
+						date_col_choice = std::max(0, date_col_choice);
 					}
 				}
 
@@ -512,7 +536,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						default: popup_config.field_delimiter = (custom_delim[0] != '\0') ? custom_delim[0] : ','; break;
 					}
 					popup_config.decimal_separator = (decimal_choice == 0) ? '.' : ',';
-					popup_config.date_format = date_fmt_buf;
+					popup_config.date_format = std::string{date_fmt_buf.data(), date_fmt_buf.size()};
 					popup_config.date_column_index = static_cast<size_t>(std::max(0, date_col_choice));
 					if (config_ctx != nullptr) {
 						config_ctx->retryWithConfig(popup_config);
@@ -563,26 +587,26 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					if (global_x_link) {
-						ImGui::SetTooltip("Unlink x-axes");
+						ImGui::SetTooltip("Unlink x-axes");	 // NOLINT(hicpp-vararg)
 					} else {
-						ImGui::SetTooltip("Link x-axes");
+						ImGui::SetTooltip("Link x-axes");  // NOLINT(hicpp-vararg)
 					}
 				}
 
-				bool &force_subplot = ctx.getForceSubplotRef();
+				bool& force_subplot = ctx.getForceSubplotRef();
 
 				ImGui::MenuItem(ICON_FA_TABLE_LIST, nullptr, &force_subplot);
-				
+
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::SetTooltip("Force subplots");
+					ImGui::SetTooltip("Force subplots");  // NOLINT(hicpp-vararg)
 				}
 
 				if (ImGui::MenuItem(ICON_FA_CLONE, nullptr, nullptr, !loading_status.is_loading)) {
-					window_contexts.push_back(ctx);
+					window_contexts.emplace_back(ctx);
 				}
 
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::SetTooltip("Duplicate");
+					ImGui::SetTooltip("Duplicate");	 // NOLINT(hicpp-vararg)
 				}
 				ImGui::EndMenuBar();
 			}
