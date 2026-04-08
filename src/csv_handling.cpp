@@ -276,6 +276,7 @@ namespace {
 
 		CSVFormat format;
 		format.delimiter(config.field_delimiter);
+		format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
 
 		std::vector<std::string> col_names{};
 		std::unordered_map<std::string, immediate_dict> values{};

@@ -1,9 +1,9 @@
 include(CPM)
 CPMAddPackage(
   NAME csv-parser
-  VERSION 3.0.0
-  URL https://github.com/vincentlaucsb/csv-parser/archive/refs/tags/3.0.0.zip
-  URL_HASH SHA256=999e20ec008e2ea8e9e643252003b00c141399d95075cbf2c227994eb09533aa
+  VERSION 3.1.0
+  URL https://github.com/vincentlaucsb/csv-parser/archive/refs/tags/3.1.0.zip
+  URL_HASH SHA256=8e4a3bf7a0f09f2a751857657e91bd3ee1382d3f2b36873a499abbd58ab172f2
 )
 
 if (csv-parser_ADDED)
