@@ -129,6 +129,10 @@ include(compiler_warnings)
 include(version)
 include(fast_float)
 
+if(APPLE)
+	target_link_options(spreadsheet_analyzer PRIVATE "LINKER:-no_warn_duplicate_libraries")
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE MATCHES "Debug")
 	target_compile_options(spreadsheet_analyzer PRIVATE
 		-fprofile-instr-generate
