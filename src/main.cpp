@@ -424,7 +424,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 					delim_choice = 2;
 				} else {
 					delim_choice = 3;
-					custom_delim[0] = popup_config.field_delimiter;
+					custom_delim.at(0) = popup_config.field_delimiter;
 				}
 
 				copyString(std::span<char>{date_fmt_buf.data(), date_fmt_buf.size()}, popup_config.date_format);
@@ -504,14 +504,14 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						switch (delim_choice) {
 							case 1:  return ';';
 							case 2:  return '\t';
-							case 3:  return (!custom_delim.empty()) ? custom_delim[0] : ','; 
+							case 3:  return (!custom_delim.empty()) ? custom_delim.at(0) : ','; 
 							default: return ',';
 						}
 					}();
 
 					std::vector<std::string> header_cols;
 					if (!preview_lines.empty()) {
-						std::istringstream ss(preview_lines[0]);
+						std::istringstream ss(preview_lines.at(0));
 						std::string token;
 						int idx = 0;
 						while (std::getline(ss, token, cur_delim)) {
@@ -522,14 +522,14 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 
 					if (!header_cols.empty()) {
 						date_col_choice = std::min(date_col_choice, static_cast<int>(header_cols.size()) - 1);
-						const auto preview_label = fmt::format("[{}] {}", date_col_choice, header_cols[static_cast<size_t>(date_col_choice)]);
+						const auto preview_label = fmt::format("[{}] {}", date_col_choice, header_cols.at(static_cast<size_t>(date_col_choice)));
 						ImGui::SetNextItemWidth(220);
 						if (ImGui::BeginCombo("##datecol", preview_label.c_str())) {
-							for (int i = 0; i < static_cast<int>(header_cols.size()); ++i) {
-								const auto label = fmt::format("[{}]  {}", i, header_cols[static_cast<size_t>(i)]);
-								const bool selected = (date_col_choice == i);
-								if (ImGui::Selectable(label.c_str(), selected)) {
-									date_col_choice = i;
+						for (int i = 0; i < static_cast<int>(header_cols.size()); ++i) {
+							const auto label = fmt::format("[{}]  {}", i, header_cols.at(static_cast<size_t>(i)));
+							const auto selected = (date_col_choice == i);
+							if (ImGui::Selectable(label.c_str(), selected)) {
+								date_col_choice = i;
 								}
 								if (selected) {
 									ImGui::SetItemDefaultFocus();
@@ -553,7 +553,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						case 0: popup_config.field_delimiter = ',';  break;
 						case 1: popup_config.field_delimiter = ';';  break;
 						case 2: popup_config.field_delimiter = '\t'; break;
-						default: popup_config.field_delimiter = (!custom_delim.empty()) ? custom_delim[0] : ','; break;
+						default: popup_config.field_delimiter = (!custom_delim.empty()) ? custom_delim.at(0) : ','; break;
 					}
 					popup_config.decimal_separator = (decimal_choice == 0) ? '.' : ',';
 					popup_config.date_format = std::string{date_fmt_buf.data(), date_fmt_buf.size()};
@@ -656,12 +656,11 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 								}
 
 								if (app_state.is_shift_pressed) {
-									const auto first_visible = std::find_if(
-										dict.begin(), dict.end(), [](const auto &tmp) { return tmp.visible; });
+									const auto first_visible =
+										std::ranges::find_if(dict, [](const auto& tmp) -> bool { return tmp.visible; });
 
-									const auto current_dict =
-										std::find_if(dict.begin(), dict.end(),
-													 [&dct](const auto &tmp) { return tmp.uuid == dct.uuid; });
+									const auto current_dict = std::ranges::find_if(
+										dict, [&dct](const auto& tmp) -> bool { return tmp.uuid == dct.uuid; });
 
 									if (first_visible != dict.end() && current_dict != dict.end()) {
 										const auto first_index = std::distance(dict.begin(), first_visible);
@@ -670,14 +669,14 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 										const auto start = std::min(first_index, current_index);
 										const auto stop = std::max(first_index, current_index);
 
-										std::for_each(dict.begin() + start, dict.begin() + stop + 1,
-													  [](auto &tmp) { tmp.visible = true; });
+										std::ranges::for_each(dict.begin() + start, dict.begin() + stop + 1,
+															  [](auto& tmp) -> void { tmp.visible = true; });
 									}
 
 									break;
 								}
 
-								std::for_each(dict.begin(), dict.end(), [](auto &tmp) { tmp.visible = false; });
+								std::ranges::for_each(dict, [](auto &tmp) -> void { tmp.visible = false; });
 								dct.visible = true;
 							}
 						}
@@ -714,12 +713,9 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			}
 		}
 
-		window_contexts.erase(std::remove_if(window_contexts.begin(), window_contexts.end(),
-											 [](const auto &ctx) {
-												 return std::visit(
-													 [](const auto &w) { return w.isScheduledForDeletion(); }, ctx);
-											 }),
-							  window_contexts.end());
+		std::erase_if(window_contexts, [](const auto& ctx) -> bool {
+			return std::visit([](const auto& w) -> bool { return w.isScheduledForDeletion(); }, ctx);
+		});
 
 		ImGui::Render();
 		SDL_SetRenderDrawColorFloat(app_state.renderer, background_color.x, background_color.y, background_color.z,
