@@ -8,6 +8,7 @@
 * add support for ISO 8601 (`YYYY-MM-DDTHH:MM:SS`), European slash (`DD/MM/YYYY HH:MM:SS`), and US (`MM/DD/YYYY HH:MM:SS`) timestamp formats
 * show CSV import configuration dialog on parse failure, allowing per-file configuration of field delimiter, decimal separator, and date format
 * make header parsing case-insensitive
+* update fast_float to v8.2.5 (https://github.com/fastfloat/fast_float/releases/tag/v8.2.5)
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances
