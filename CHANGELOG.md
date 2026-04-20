@@ -9,6 +9,7 @@
 * show CSV import configuration dialog on parse failure, allowing per-file configuration of field delimiter, decimal separator, and date format
 * make header parsing case-insensitive
 * update fast_float to v8.2.5 (https://github.com/fastfloat/fast_float/releases/tag/v8.2.5)
+* also allow bracketed units in header parsing, e.g. `Time (s)` or `Time [s]`
 
 ## 1.1.1 (23.03.2026)
 * fix generation of unique file titles to work on more circumstances

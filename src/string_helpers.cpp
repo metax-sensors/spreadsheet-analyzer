@@ -15,13 +15,18 @@ auto trim(std::string_view str) -> std::string_view {
 }
 
 auto stripUnit(std::string_view header) -> std::pair<std::string, std::string> {
-	const auto pos = header.find_last_of('(');
+	const auto pos = header.find_last_of("([");
 	if (pos == std::string::npos) {
 		return {std::string(header), ""};
 	}
 
+	const char close = (header[pos] == '(') ? ')' : ']';
 	const auto name = header.substr(0, pos);
-	const auto unit = header.substr(pos + 1, header.find_last_of(')') - pos - 1);
+	const auto close_pos = header.find_last_of(close);
+	if (close_pos == std::string::npos || close_pos <= pos) {
+		return {std::string(header), ""};
+	}
+	const auto unit = header.substr(pos + 1, close_pos - pos - 1);
 
 	if (unit.size() > 5) {
 		return {std::string(header), ""};
