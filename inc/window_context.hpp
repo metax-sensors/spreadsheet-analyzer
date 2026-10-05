@@ -114,7 +114,7 @@ private:
 
 class CSVWindowContext : public WindowContext {
 public:
-	using function_signature = std::function<std::vector<data_dict_t>(
+	using function_signature = std::function<loaded_data_t(
 		std::vector<std::filesystem::path>, size_t&, const bool&, const csv_parse_config_t&, std::string&, double&)>;
 
 	CSVWindowContext() = default;
@@ -136,13 +136,14 @@ public:
 	}
 
 	CSVWindowContext(const CSVWindowContext &other)
-		: WindowContext(std::move(other)), data{other.data}, global_x_link{other.global_x_link},
+		: WindowContext(std::move(other)), data{other.data}, fft_data{other.fft_data}, global_x_link{other.global_x_link},
 		  last_local_x_range{other.last_local_x_range}, force_subplot{other.force_subplot},
 		  force_single_plot{other.force_single_plot} {};
 
 	auto operator=(const CSVWindowContext &other) -> CSVWindowContext & {
 		if (this != &other) {
 			this->data = other.data;
+			this->fft_data = other.fft_data;
 			this->global_x_link = other.global_x_link;
 			this->last_local_x_range = other.last_local_x_range;
 			this->force_subplot = other.force_subplot;
@@ -153,7 +154,8 @@ public:
 	};
 
 	CSVWindowContext(CSVWindowContext &&other) noexcept
-		: WindowContext(std::move(other)), data{std::move(other.data)}, global_x_link{other.global_x_link},
+		: WindowContext(std::move(other)), data{std::move(other.data)}, fft_data{std::move(other.fft_data)},
+		  global_x_link{other.global_x_link},
 		  last_local_x_range{other.last_local_x_range}, force_subplot{other.force_subplot},
 		  force_single_plot{other.force_single_plot},
 		  stored_paths{std::move(other.stored_paths)}, stored_fn{std::move(other.stored_fn)},
@@ -172,6 +174,7 @@ public:
 	auto operator=(CSVWindowContext &&other) noexcept -> CSVWindowContext & {
 		if (this != &other) {
 			this->data          = std::move(other.data);
+			this->fft_data      = std::move(other.fft_data);
 			this->global_x_link = other.global_x_link;
 			this->last_local_x_range = other.last_local_x_range;
 			this->force_subplot = other.force_subplot;
@@ -208,6 +211,14 @@ public:
 
 	auto setData(std::vector<data_dict_t> new_data) -> void {
 		this->data = std::move(new_data);
+	}
+
+	[[nodiscard]] auto getFFTData() -> std::vector<fft_dict_t> & {
+		return this->fft_data;
+	}
+
+	[[nodiscard]] auto isFFT() const -> bool {
+		return !this->fft_data.empty();
 	}
 
 	auto getGlobalXLinkRef() -> bool & {
@@ -285,7 +296,7 @@ public:
 		// NOLINTNEXTLINE(bugprone-exception-escape)
 		this->data_dict_f = std::async(
 			std::launch::async,
-			[this, fn, paths, config = this->current_config, title = temp_title]() -> std::vector<data_dict_t> {
+			[this, fn, paths, config = this->current_config, title = temp_title]() -> loaded_data_t {
 				try {
 					auto &temp_finished_files = *this->finished_files;
 					const auto &temp_stop_loading = *this->stop_loading;
@@ -305,11 +316,17 @@ public:
 
 	auto checkForFinishedLoading() -> void {
 		if (data_dict_f.valid() && data_dict_f.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-			const auto temp_data_dict = data_dict_f.get();
+			auto loaded = data_dict_f.get();
 
-			if (!temp_data_dict.empty()) {
-				this->data = temp_data_dict;
-				this->data.front().visible = true;
+			if (!loaded.time_series.empty() || !loaded.fft.empty()) {
+				this->data = std::move(loaded.time_series);
+				this->fft_data = std::move(loaded.fft);
+				if (!this->data.empty()) {
+					this->data.front().visible = true;
+				}
+				if (!this->fft_data.empty()) {
+					this->fft_data.front().visible = true;
+				}
 				this->needs_config_dialog = false;
 			} else if (!this->parse_error_sample->empty()) {
 				this->needs_config_dialog = true;
@@ -370,12 +387,13 @@ public:
 
 private:
 	std::vector<data_dict_t> data{};
+	std::vector<fft_dict_t> fft_data{};
 	bool global_x_link{false};
 	std::pair<double, double> last_local_x_range{std::numeric_limits<double>::quiet_NaN(),
 											 std::numeric_limits<double>::quiet_NaN()};
 	bool force_subplot{false};
 	bool force_single_plot{false};
-	std::future<std::vector<data_dict_t>> data_dict_f{};
+	std::future<loaded_data_t> data_dict_f{};
 
 	// should be fine to use these without locking as they are only written on one thread
 	std::unique_ptr<bool> stop_loading{std::make_unique<bool>(false)};

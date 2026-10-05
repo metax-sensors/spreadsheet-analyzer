@@ -8,3 +8,4 @@
 #include "window_context.hpp"
 
 auto plotDataInSubplots(CSVWindowContext &window_context) -> void;
+auto plotFFT(CSVWindowContext &window_context) -> void;

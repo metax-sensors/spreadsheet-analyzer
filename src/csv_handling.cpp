@@ -154,6 +154,15 @@ namespace {
 		return parts;
 	}
 
+	constexpr std::array<char, 4> delimiter_candidates{',', ';', '\t', '|'};
+
+	auto parseNumber(const std::string_view str, const char decimal_separator, double &out) -> bool {
+		const auto value = trim(str);
+		const fast_float::parse_options opts{fast_float::chars_format::general, decimal_separator};
+		const auto result = fast_float::from_chars_advanced(value.data(), value.data() + value.size(), out, opts);
+		return result.ec == std::errc() && result.ptr == value.data() + value.size() && std::isfinite(out);
+	}
+
 	auto readSampleLines(const std::filesystem::path& path, const size_t max_lines) -> std::vector<std::string> {
 		std::ifstream input(path);
 		if (!input) {
@@ -224,13 +233,61 @@ namespace {
 		size_t checked_rows;
 	};
 
+	// Fallback when no date column exists: the first column holding non-negative, strictly increasing
+	// numbers is taken as the frequency axis of an FFT export.
+	auto inferFFTConfigFromLines(const std::vector<std::string>& lines, const csv_parse_config_t& current_config)
+		-> std::optional<csv_parse_config_t> {
+		const size_t rows_to_check = std::min<size_t>(lines.size() - 1, 12);
+		const size_t min_required = std::min<size_t>(3, rows_to_check);
+
+		for (const auto delimiter : delimiter_candidates) {
+			const auto header_cols = splitLine(lines.front(), delimiter);
+			if (header_cols.size() < 2) {
+				continue;
+			}
+
+			const auto decimal = detectDecimalSeparator(lines, delimiter, std::numeric_limits<size_t>::max(),
+														current_config.decimal_separator);
+			if (decimal == delimiter) {
+				continue;
+			}
+
+			for (size_t col = 0; col < header_cols.size(); ++col) {
+				auto prev = -std::numeric_limits<double>::infinity();
+				size_t valid_rows = 0;
+
+				for (size_t line_idx = 1; line_idx <= rows_to_check; ++line_idx) {
+					const auto cols = splitLine(lines[line_idx], delimiter);
+					double value{};
+					if (cols.size() != header_cols.size() || !parseNumber(cols[col], decimal, value) || value < 0 ||
+						value <= prev) {
+						valid_rows = 0;
+						break;
+					}
+					prev = value;
+					++valid_rows;
+				}
+
+				if (valid_rows > 0 && valid_rows >= min_required) {
+					auto detected = current_config;
+					detected.field_delimiter = delimiter;
+					detected.decimal_separator = decimal;
+					detected.date_column_index = col;
+					detected.date_format.clear();
+					detected.file_type = csv_file_type_t::FFT;
+					return detected;
+				}
+			}
+		}
+
+		return std::nullopt;
+	}
+
 	auto inferConfigFromLines(const std::vector<std::string>& lines, const csv_parse_config_t& current_config)
 		-> std::optional<csv_parse_config_t> {
 		if (lines.size() < 2) {
 			return std::nullopt;
 		}
-
-		constexpr std::array<char, 4> delimiter_candidates{',', ';', '\t', '|'};
 
 		std::optional<inferred_config_t> best{};
 
@@ -272,15 +329,16 @@ namespace {
 		}
 
 		if (!best.has_value() || best->date_score == 0 || best->checked_rows == 0) {
-			return std::nullopt;
+			return inferFFTConfigFromLines(lines, current_config);
 		}
 
 		const size_t min_required = std::min<size_t>(3, best->checked_rows);
 		if (best->date_score < min_required) {
-			return std::nullopt;
+			return inferFFTConfigFromLines(lines, current_config);
 		}
 
 		auto detected = current_config;
+		detected.file_type = csv_file_type_t::TIME_SERIES;
 		detected.field_delimiter = best->field_delimiter;
 		detected.date_column_index = best->date_column_index;
 		detected.date_format = std::string{best->date_format};
@@ -342,37 +400,45 @@ namespace {
 		return std::max<size_t>(1, static_cast<size_t>(static_cast<double>(file_size) / avg_bytes_per_row));
 	}
 
-	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading,
-	             const csv_parse_config_t &config, std::string &parse_error_sample,
-	             double &current_file_progress)
-		-> std::unordered_map<std::string, immediate_dict> {
-		using namespace csv;
-
-		CSVFormat format;
+	auto makeCSVFormat(const csv_parse_config_t &config) -> csv::CSVFormat {
+		csv::CSVFormat format;
 		format.delimiter(config.field_delimiter);
 		if (config.first_row_is_header) {
 			format.header_row(0);
 		} else {
 			format.no_header();
 		}
-		format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+		format.column_names_policy(csv::ColumnNamePolicy::CASE_INSENSITIVE);
+		return format;
+	}
+
+	auto getAllColumnNames(csv::CSVReader &reader, const std::filesystem::path &path, const csv_parse_config_t &config)
+		-> std::vector<std::string> {
+		if (config.first_row_is_header) {
+			return reader.get_col_names();
+		}
+
+		const auto sample_lines = readSampleLines(path, 1);
+		const auto column_count = sample_lines.empty() ? 0uz : splitLine(sample_lines.front(), config.field_delimiter).size();
+		std::vector<std::string> all_col_names{};
+		all_col_names.reserve(column_count);
+		for (size_t i = 0; i < column_count; ++i) {
+			all_col_names.push_back(fmt::format("col {}", i));
+		}
+		return all_col_names;
+	}
+
+	auto loadCSV(const std::filesystem::path &path, const std::atomic<bool> &stop_loading,
+	             const csv_parse_config_t &config, std::string &parse_error_sample,
+	             double &current_file_progress)
+		-> std::unordered_map<std::string, immediate_dict> {
+		using namespace csv;
 
 		std::vector<std::string> col_names{};
 		std::unordered_map<std::string, immediate_dict> values{};
 
-		CSVReader reader(path.string(), format);
-
-		std::vector<std::string> all_col_names{};
-		if (config.first_row_is_header) {
-			all_col_names = reader.get_col_names();
-		} else {
-			const auto sample_lines = readSampleLines(path, 1);
-			const auto column_count = sample_lines.empty() ? 0uz : splitLine(sample_lines.front(), config.field_delimiter).size();
-			all_col_names.reserve(column_count);
-			for (size_t i = 0; i < column_count; ++i) {
-				all_col_names.push_back(fmt::format("col {}", i));
-			}
-		}
+		CSVReader reader(path.string(), makeCSVFormat(config));
+		const auto all_col_names = getAllColumnNames(reader, path, config);
 
 		const auto date_col_idx = all_col_names.empty() ? 0uz : std::min(config.date_column_index, all_col_names.size() - 1uz);
 
@@ -466,6 +532,84 @@ namespace {
 		return values;
 	}
 
+	// FFT files are kept per file: concatenating spectra of several files makes no sense.
+	auto loadFFT(const std::filesystem::path &path, const std::atomic<bool> &stop_loading,
+				 const csv_parse_config_t &config, std::string &parse_error_sample, double &current_file_progress,
+				 const bool prefix_file_name) -> std::vector<fft_dict_t> {
+		csv::CSVReader reader(path.string(), makeCSVFormat(config));
+		const auto all_col_names = getAllColumnNames(reader, path, config);
+
+		if (all_col_names.size() < 2) {
+			parse_error_sample = "(no data columns found)";
+			return {};
+		}
+
+		const auto x_col_idx = std::min(config.date_column_index, all_col_names.size() - 1uz);
+		const auto x_unit = [&]() -> std::string {
+			const auto unit = config.first_row_is_header ? stripUnit(all_col_names[x_col_idx]).second : std::string{};
+			return unit.empty() ? "Hz" : unit;
+		}();
+		const auto name_prefix = prefix_file_name ? path.stem().string() + ": " : std::string{};
+
+		std::vector<fft_dict_t> dicts{};
+		std::vector<size_t> source_cols{};
+
+		for (size_t i = 0; i < all_col_names.size(); ++i) {
+			if (i == x_col_idx || all_col_names[i].empty()) {
+				continue;
+			}
+
+			const auto [name, unit] = config.first_row_is_header ? stripUnit(all_col_names[i]) : std::pair{all_col_names[i], std::string{}};
+			dicts.push_back({.name = name_prefix + name,
+							 .uuid = uuids::to_string(UUIDGenerator::getInstance().generate()),
+							 .unit = unit,
+							 .x_unit = x_unit});
+			source_cols.push_back(i);
+		}
+
+		const auto estimated_total_rows = estimateRowCount(path);
+		constexpr size_t progress_update_interval = 256;
+
+		for (size_t line = 0; auto &row : reader) {
+			if (line % progress_update_interval == 0) {
+				current_file_progress =
+					std::min(1.0, static_cast<double>(line) / static_cast<double>(estimated_total_rows));
+			}
+			++line;
+
+			try {
+				double frequency{};
+				if (!parseNumber(row[x_col_idx].get<std::string>(), config.decimal_separator, frequency)) {
+					if (parse_error_sample.empty()) {
+						parse_error_sample = row[x_col_idx].get<std::string>();
+					}
+					continue;
+				}
+
+				for (size_t k = 0; k < dicts.size(); ++k) {
+					double value{};
+					if (parseNumber(row[source_cols[k]].get<std::string>(), config.decimal_separator, value)) {
+						dicts[k].frequency->push_back(frequency);
+						dicts[k].data->push_back(value);
+					}
+				}
+			} catch (const std::exception &e) {
+				spdlog::warn("Error parsing line {}:{}: {}", path.filename().string(), line, e.what());
+			}
+
+			if (stop_loading) {
+				break;
+			}
+		}
+
+		std::erase_if(dicts, [](const auto &dict) { return dict.data->empty(); });
+		if (dicts.empty() && parse_error_sample.empty()) {
+			parse_error_sample = "(no data could be parsed)";
+		}
+
+		return dicts;
+	}
+
 	template <typename T>
 	auto calculateMedian(std::vector<T> data) -> T {
 		if (data.empty()) {
@@ -525,9 +669,30 @@ auto preparePaths(std::vector<std::filesystem::path> paths) -> std::vector<std::
 
 auto loadCSVs(const std::vector<std::filesystem::path>& paths, size_t& finished, const std::atomic<bool>& stop_loading,
 			  const csv_parse_config_t& config, std::string& parse_error_out,
-			  double& current_file_progress) -> std::vector<data_dict_t> {
+			  double& current_file_progress) -> loaded_data_t {
 	if (paths.empty()) {
 		return {};
+	}
+
+	if (config.file_type == csv_file_type_t::FFT) {
+		loaded_data_t result{};
+		for (size_t i = 0; const auto &path : paths) {
+			if (stop_loading) {
+				return {};
+			}
+
+			current_file_progress = 0.0;
+			spdlog::info("Loading FFT file: {} ({}/{})...", path.filename().string(), ++i, paths.size());
+			try {
+				auto dicts = loadFFT(path, stop_loading, config, parse_error_out, current_file_progress, paths.size() > 1);
+				std::ranges::move(dicts, std::back_inserter(result.fft));
+			} catch (const std::exception &e) {
+				spdlog::error("{}", e.what());
+			}
+			current_file_progress = 0.0;
+			++finished;
+		}
+		return result;
 	}
 
 	std::unordered_map<std::string, immediate_dict> values_temp{};
@@ -627,7 +792,7 @@ auto loadCSVs(const std::vector<std::filesystem::path>& paths, size_t& finished,
 		values.push_back(dd);
 	}
 
-	return values;
+	return {.time_series = std::move(values)};
 }
 
 auto inferCSVParseConfig(const std::vector<std::filesystem::path>& paths,

@@ -453,6 +453,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			static std::array<char, 64> date_fmt_buf{};
 			static int date_col_choice{0};
 			static bool first_row_is_header_choice{true};
+			static int file_type_choice{0};   // 0=time series 1=FFT
 			static std::vector<std::string> preview_lines{};
 
 			CSVWindowContext *config_ctx{nullptr};
@@ -474,7 +475,8 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 					const bool changed = inferred_config->field_delimiter != current.field_delimiter ||
 										 inferred_config->decimal_separator != current.decimal_separator ||
 										 inferred_config->date_column_index != current.date_column_index ||
-										 inferred_config->date_format != current.date_format;
+										 inferred_config->date_format != current.date_format ||
+										 inferred_config->file_type != current.file_type;
 
 					if (changed) {
 						if (config_ctx->shouldSuggestConfigInDialog()) {
@@ -508,6 +510,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				copyString(std::span<char>{date_fmt_buf.data(), date_fmt_buf.size()}, popup_config.date_format);
 				date_col_choice = static_cast<int>(popup_config.date_column_index);
 				first_row_is_header_choice = popup_config.first_row_is_header;
+				file_type_choice = popup_config.file_type == csv_file_type_t::FFT ? 1 : 0;
 
 				preview_lines.clear();
 				if (!config_ctx->getStoredPaths().empty()) {
@@ -566,10 +569,19 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				ImGui::SameLine(160);
 				ImGui::Checkbox("Treat first row as header", &first_row_is_header_choice);
 
+				ImGui::Text("File type");  // NOLINT(hicpp-vararg)
+				ImGui::SameLine(160);
+				ImGui::RadioButton("Time series", &file_type_choice, 0); ImGui::SameLine();
+				ImGui::RadioButton("FFT (frequency)", &file_type_choice, 1);
+
+				const auto is_fft = file_type_choice == 1;
+
+				ImGui::BeginDisabled(is_fft);
 				ImGui::Text("Date format");  // NOLINT(hicpp-vararg)
 				ImGui::SameLine(160);
 				ImGui::SetNextItemWidth(220);
 				ImGui::InputTextWithHint("##datefmt", "auto-detect", date_fmt_buf.data(), date_fmt_buf.size());
+				ImGui::EndDisabled();
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					// NOLINTNEXTLINE(hicpp-vararg)
 					ImGui::SetTooltip(
@@ -582,7 +594,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 						"Leave empty for automatic detection.");
 				}
 
-				ImGui::Text("Date column");  // NOLINT(hicpp-vararg)
+				ImGui::TextUnformatted(is_fft ? "Frequency column" : "Date column");
 				ImGui::SameLine(160);
 				{
 					const char cur_delim = [&]() -> char {
@@ -648,6 +660,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 					popup_config.date_format = std::string{date_fmt_buf.data(), date_fmt_buf.size()};
 					popup_config.date_column_index = static_cast<size_t>(std::max(0, date_col_choice));
 					popup_config.first_row_is_header = first_row_is_header_choice;
+					popup_config.file_type = is_fft ? csv_file_type_t::FFT : csv_file_type_t::TIME_SERIES;
 					if (config_ctx != nullptr) {
 						config_ctx->retryWithConfig(popup_config);
 					}
@@ -691,36 +704,39 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 			const auto loading_status = ctx.getLoadingStatus();
 
 			if (ImGui::BeginMenuBar()) {
-				bool &global_x_link = ctx.getGlobalXLinkRef();
-				
-				ImGui::MenuItem(global_x_link ? ICON_FA_LINK_SLASH : ICON_FA_LINK, nullptr, &global_x_link);
-				
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					if (global_x_link) {
-						ImGui::SetTooltip("Unlink x-axes");	 // NOLINT(hicpp-vararg)
-					} else {
-						ImGui::SetTooltip("Link x-axes");  // NOLINT(hicpp-vararg)
+				// time axis options make no sense for a frequency axis
+				if (!ctx.isFFT()) {
+					bool &global_x_link = ctx.getGlobalXLinkRef();
+					
+					ImGui::MenuItem(global_x_link ? ICON_FA_LINK_SLASH : ICON_FA_LINK, nullptr, &global_x_link);
+					
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+						if (global_x_link) {
+							ImGui::SetTooltip("Unlink x-axes");	 // NOLINT(hicpp-vararg)
+						} else {
+							ImGui::SetTooltip("Link x-axes");  // NOLINT(hicpp-vararg)
+						}
 					}
-				}
 
-				bool& force_subplot = ctx.getForceSubplotRef();
+					bool& force_subplot = ctx.getForceSubplotRef();
 
-				ImGui::MenuItem(ICON_FA_TABLE_LIST, nullptr, &force_subplot);
+					ImGui::MenuItem(ICON_FA_TABLE_LIST, nullptr, &force_subplot);
 
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::SetTooltip("Force subplots");  // NOLINT(hicpp-vararg)
-				}
-
-				bool& force_single_plot = ctx.getForceSinglePlotRef();
-
-				if (ImGui::MenuItem(ICON_FA_CHART_LINE, nullptr, &force_single_plot) && !force_single_plot) {
-					for (auto &dct : dict) {
-						dct.y_axis = 0;
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+						ImGui::SetTooltip("Force subplots");  // NOLINT(hicpp-vararg)
 					}
-				}
 
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::SetTooltip("Combine into one graph");  // NOLINT(hicpp-vararg)
+					bool& force_single_plot = ctx.getForceSinglePlotRef();
+
+					if (ImGui::MenuItem(ICON_FA_CHART_LINE, nullptr, &force_single_plot) && !force_single_plot) {
+						for (auto &dct : dict) {
+							dct.y_axis = 0;
+						}
+					}
+
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+						ImGui::SetTooltip("Combine into one graph");  // NOLINT(hicpp-vararg)
+					}
 				}
 
 				if (ImGui::MenuItem(ICON_FA_CLONE, nullptr, nullptr, !loading_status.is_loading)) {
@@ -749,95 +765,103 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (window_content_size.y / 2.0f) - 10.0f);
 				ImGui::ProgressBar(progress, ImVec2(window_content_size.x - (2.0f * padding), 20.0f), label.c_str());
 			} else {
-				if (!dict.empty()) {
+				if (!dict.empty() || ctx.isFFT()) {
 					ImGui::BeginChild("Column List", ImVec2(250, window_content_size.y));
 					const auto subwindow_size = ImGui::GetContentRegionAvail();
 					if (ImGui::BeginListBox("##List Box", ImVec2(subwindow_size.x, subwindow_size.y))) {
-						const auto show_axis_picker = ctx.getForceSinglePlot();
+						const auto show_axis_picker = ctx.getForceSinglePlot() && !ctx.isFFT();
 
-						for (auto &dct : dict) {
-							ImGui::PushID(dct.uuid.c_str());
+						const auto draw_column_list = [&](auto &columns) {
+							for (auto &dct : columns) {
+								ImGui::PushID(dct.uuid.c_str());
 
-							const auto axis_button_width = 34.0f;
-							const auto selectable_width =
-								show_axis_picker ? std::max(ImGui::GetContentRegionAvail().x - axis_button_width -
-																 ImGui::GetStyle().ItemSpacing.x,
-															 0.0f)
-												  : 0.0f;
+								const auto axis_button_width = 34.0f;
+								const auto selectable_width =
+									show_axis_picker ? std::max(ImGui::GetContentRegionAvail().x - axis_button_width -
+																	 ImGui::GetStyle().ItemSpacing.x,
+																 0.0f)
+													  : 0.0f;
 
-							const auto list_id = dct.name + "##" + dct.uuid;
-							if (ImGui::Selectable(list_id.c_str(), &dct.visible, 0, ImVec2(selectable_width, 0))) {
-								if (app_state.is_ctrl_pressed) {
-									break;
-								}
-
-								if (app_state.is_shift_pressed) {
-									const auto first_visible =
-										std::ranges::find_if(dict, [](const auto& tmp) -> bool { return tmp.visible; });
-
-									const auto current_dict = std::ranges::find_if(
-										dict, [&dct](const auto& tmp) -> bool { return tmp.uuid == dct.uuid; });
-
-									if (first_visible != dict.end() && current_dict != dict.end()) {
-										const auto first_index = std::distance(dict.begin(), first_visible);
-										const auto current_index = std::distance(dict.begin(), current_dict);
-
-										const auto start = std::min(first_index, current_index);
-										const auto stop = std::max(first_index, current_index);
-
-										std::ranges::for_each(dict.begin() + start, dict.begin() + stop + 1,
-															  [](auto& tmp) -> void { tmp.visible = true; });
+								const auto list_id = dct.name + "##" + dct.uuid;
+								if (ImGui::Selectable(list_id.c_str(), &dct.visible, 0, ImVec2(selectable_width, 0))) {
+									if (app_state.is_ctrl_pressed) {
+										break;
 									}
 
-									break;
+									if (app_state.is_shift_pressed) {
+										const auto first_visible =
+											std::ranges::find_if(columns, [](const auto& tmp) -> bool { return tmp.visible; });
+
+										const auto current_dict = std::ranges::find_if(
+											columns, [&dct](const auto& tmp) -> bool { return tmp.uuid == dct.uuid; });
+
+										if (first_visible != columns.end() && current_dict != columns.end()) {
+											const auto first_index = std::distance(columns.begin(), first_visible);
+											const auto current_index = std::distance(columns.begin(), current_dict);
+
+											const auto start = std::min(first_index, current_index);
+											const auto stop = std::max(first_index, current_index);
+
+											std::ranges::for_each(columns.begin() + start, columns.begin() + stop + 1,
+																  [](auto& tmp) -> void { tmp.visible = true; });
+										}
+
+										break;
+									}
+
+									std::ranges::for_each(columns, [](auto &tmp) -> void { tmp.visible = false; });
+									dct.visible = true;
 								}
 
-								std::ranges::for_each(dict, [](auto &tmp) -> void { tmp.visible = false; });
-								dct.visible = true;
+								if (show_axis_picker) {
+									ImGui::SameLine();
+
+									const auto axis_label = [](int y_axis) -> const char * {
+										switch (y_axis) {
+										case 1:
+											return "Y1";
+										case 2:
+											return "Y2";
+										case 3:
+											return "Y3";
+										default:
+											return "auto";
+										}
+									}(dct.y_axis);
+
+									if (ImGui::SmallButton(axis_label)) {
+										ImGui::OpenPopup("##axis_popup");
+									}
+
+									if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+										ImGui::SetTooltip("Y-axis for this measurement");  // NOLINT(hicpp-vararg)
+									}
+
+									if (ImGui::BeginPopup("##axis_popup")) {
+										if (ImGui::Selectable("Auto", dct.y_axis == 0)) {
+											dct.y_axis = 0;
+										}
+										if (ImGui::Selectable("Y1 (left)", dct.y_axis == 1)) {
+											dct.y_axis = 1;
+										}
+										if (ImGui::Selectable("Y2 (right)", dct.y_axis == 2)) {
+											dct.y_axis = 2;
+										}
+										if (ImGui::Selectable("Y3 (right)", dct.y_axis == 3)) {
+											dct.y_axis = 3;
+										}
+										ImGui::EndPopup();
+									}
+								}
+
+								ImGui::PopID();
 							}
+						};
 
-							if (show_axis_picker) {
-								ImGui::SameLine();
-
-								const auto axis_label = [](int y_axis) -> const char * {
-									switch (y_axis) {
-									case 1:
-										return "Y1";
-									case 2:
-										return "Y2";
-									case 3:
-										return "Y3";
-									default:
-										return "auto";
-									}
-								}(dct.y_axis);
-
-								if (ImGui::SmallButton(axis_label)) {
-									ImGui::OpenPopup("##axis_popup");
-								}
-
-								if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-									ImGui::SetTooltip("Y-axis for this measurement");  // NOLINT(hicpp-vararg)
-								}
-
-								if (ImGui::BeginPopup("##axis_popup")) {
-									if (ImGui::Selectable("Auto", dct.y_axis == 0)) {
-										dct.y_axis = 0;
-									}
-									if (ImGui::Selectable("Y1 (left)", dct.y_axis == 1)) {
-										dct.y_axis = 1;
-									}
-									if (ImGui::Selectable("Y2 (right)", dct.y_axis == 2)) {
-										dct.y_axis = 2;
-									}
-									if (ImGui::Selectable("Y3 (right)", dct.y_axis == 3)) {
-										dct.y_axis = 3;
-									}
-									ImGui::EndPopup();
-								}
-							}
-
-							ImGui::PopID();
+						if (ctx.isFFT()) {
+							draw_column_list(ctx.getFFTData());
+						} else {
+							draw_column_list(dict);
 						}
 						ImGui::EndListBox();
 					}
@@ -849,7 +873,11 @@ auto main(int argc, char **argv) -> int {  // NOLINT(readability-function-cognit
 					ImGui::PushFont(getFont(fontList::ROBOTO_MONO_16));
 					
 					ctx.switchToImPlotContext();
-					plotDataInSubplots(ctx);
+					if (ctx.isFFT()) {
+						plotFFT(ctx);
+					} else {
+						plotDataInSubplots(ctx);
+					}
 					
 					if (app_state.show_debug_menu) {
 						ImGui::PushID(ctx.getUUID().c_str());

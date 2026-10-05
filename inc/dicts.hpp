@@ -41,6 +41,23 @@ struct data_dict_t {
 	int fit_zoom_calculated_for_points{0};
 };
 
+struct fft_dict_t {
+	std::string name;
+	std::string uuid;
+	std::string unit;
+	std::string x_unit;
+	bool visible{false};
+	int y_axis{0};  // unused for FFTs, keeps the shared column list generic
+
+	std::shared_ptr<std::vector<double>> frequency{std::make_shared<std::vector<double>>()};
+	std::shared_ptr<std::vector<double>> data{std::make_shared<std::vector<double>>()};
+};
+
+struct loaded_data_t {
+	std::vector<data_dict_t> time_series{};
+	std::vector<fft_dict_t> fft{};
+};
+
 struct immediate_dict {
 	std::string name;
 	std::string unit;
@@ -48,10 +65,16 @@ struct immediate_dict {
 	std::vector<std::pair<time_t, double>> data{};
 };
 
+enum class csv_file_type_t : uint8_t {
+	TIME_SERIES,
+	FFT
+};
+
 struct csv_parse_config_t {
 	char        field_delimiter   {','};
 	char        decimal_separator {','};
 	std::string date_format       {};    // empty = auto-detect
-	size_t      date_column_index {0};
+	size_t      date_column_index {0};   // x column; frequency column for FFTs
 	bool        first_row_is_header {true};
+	csv_file_type_t file_type     {csv_file_type_t::TIME_SERIES};
 };

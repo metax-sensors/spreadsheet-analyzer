@@ -945,6 +945,51 @@ namespace {
 	}
 }  // namespace
 
+// ponytail: plots raw points without aggregation, fine for typical FFT sizes (<1M bins)
+auto plotFFT(CSVWindowContext &window_context) -> void {
+	auto &data = window_context.getFFTData();
+
+	std::vector<std::string> visible_ids{};
+	for (const auto &col : data) {
+		if (col.visible) {
+			visible_ids.push_back(col.uuid);
+		}
+	}
+
+	if (visible_ids.empty()) {
+		return;
+	}
+
+	auto &assigned_plot_ids = window_context.getAssignedPlotIDsRef();
+	if (visible_ids != assigned_plot_ids) {
+		ImPlot::SetNextAxesToFit();
+		assigned_plot_ids = std::move(visible_ids);
+	}
+
+	const auto plot_id = "##" + window_context.getUUID();
+	if (ImPlot::BeginPlot(plot_id.c_str(), ImGui::GetContentRegionAvail(), ImPlotFlags_NoTitle)) {
+		const auto *first_visible = &*std::ranges::find_if(data, &fft_dict_t::visible);
+		const auto shared_unit = std::ranges::all_of(data, [first_visible](const auto &col) {
+			return !col.visible || col.unit == first_visible->unit;
+		}) ? first_visible->unit : std::string{};
+
+		ImPlot::SetupAxis(ImAxis_X1, "frequency", ImPlotAxisFlags_NoLabel);
+		ImPlot::SetupAxisFormat(ImAxis_X1, getFormatString(first_visible->x_unit).c_str());
+		ImPlot::SetupAxis(ImAxis_Y1, nullptr, ImPlotAxisFlags_NoLabel);
+		ImPlot::SetupAxisFormat(ImAxis_Y1, getFormatString(shared_unit).c_str());
+		ImPlot::SetupLegend(ImPlotLocation_NorthEast, ImPlotLegendFlags_NoMenus);
+
+		for (const auto &col : data) {
+			if (col.visible) {
+				ImPlot::PlotLine(col.name.c_str(), col.frequency->data(), col.data->data(),
+								 static_cast<int>(col.data->size()));
+			}
+		}
+
+		ImPlot::EndPlot();
+	}
+}
+
 auto plotDataInSubplots(CSVWindowContext &window_context) -> void {
 	const auto plot_size = ImGui::GetContentRegionAvail();
 
